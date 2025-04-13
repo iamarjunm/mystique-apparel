@@ -5,19 +5,23 @@ const PaymentButton = ({
   selectedShippingRate, 
   onClick,
   cart = [],
-  razorpayLoaded = false // Add this new prop
+  razorpayLoaded = false
 }) => {
-  // Debugging logs
+  // Check for Razorpay in window object
+  const isRazorpayReady = razorpayLoaded && typeof window.Razorpay !== 'undefined';
+  
+  // Single isDisabled declaration using the more accurate isRazorpayReady check
+  const isDisabled = loading || !selectedShippingRate || cart.length === 0 || !isRazorpayReady;
+  
   console.log('PaymentButton props:', {
     loading,
     selectedShippingRate,
     cartItems: cart.length,
     hasShipping: !!selectedShippingRate,
-    razorpayLoaded
+    razorpayLoaded,
+    isRazorpayReady
   });
 
-  // Determine button state
-  const isDisabled = loading || !selectedShippingRate || cart.length === 0 || !razorpayLoaded;
   let tooltipMessage = '';
   
   if (loading) {
@@ -26,15 +30,16 @@ const PaymentButton = ({
     tooltipMessage = 'Your cart is empty';
   } else if (!selectedShippingRate) {
     tooltipMessage = 'Please select a shipping method';
-  } else if (!razorpayLoaded) {
+  } else if (!isRazorpayReady) {
     tooltipMessage = 'Payment system loading...';
   }
 
   const handleClick = (e) => {
-    e.preventDefault(); // Prevent default form submission
+    e.preventDefault();
     console.log('Payment button clicked', {
       isDisabled,
-      razorpayLoaded: window.Razorpay !== undefined
+      razorpayReady: isRazorpayReady,
+      windowRazorpay: window.Razorpay !== undefined
     });
 
     if (!isDisabled && onClick) {
@@ -44,7 +49,7 @@ const PaymentButton = ({
         loading,
         hasShipping: !!selectedShippingRate,
         hasCartItems: cart.length > 0,
-        razorpayLoaded
+        razorpayReady: isRazorpayReady
       });
     }
   };
@@ -52,7 +57,7 @@ const PaymentButton = ({
   return (
     <div className="md:col-span-2 text-center relative group">
       <button
-        type="button" // Changed from "submit" to prevent form submission
+        type="button"
         className={`bg-gradient-to-r from-white to-gray-400 text-black py-4 px-8 rounded-full text-xl font-semibold transition-all duration-300 ${
           isDisabled 
             ? 'opacity-50 cursor-not-allowed' 

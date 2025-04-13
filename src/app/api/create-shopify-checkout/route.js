@@ -7,32 +7,61 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-export async function POST(req) {
-  const {
-    razorpayPaymentId,
-    razorpayOrderId,
-    razorpaySignature,
-    cart,
-    email,
-    shippingAddress,
-  } = await req.json();
+// Helper to calculate order total consistently
+function calculateOrderTotal(cart) {
+  return cart.reduce((total, item) => {
+    if (!item.price || !item.quantity) {
+      throw new Error("Invalid cart item");
+    }
+    return total + item.price * item.quantity;
+  }, 0);
+}
 
+export async function POST(req) {
   try {
-    // Step 1: Verify Razorpay payment signature
+    const requestData = await req.json();
+    
+    // Validate input
+    const requiredFields = [
+      'razorpayPaymentId',
+      'razorpayOrderId', 
+      'razorpaySignature',
+      'cart',
+      'email',
+      'shippingAddress'
+    ];
+    
+    for (const field of requiredFields) {
+      if (!requestData[field]) {
+        throw new Error(`Missing required field: ${field}`);
+      }
+    }
+
+    const {
+      razorpayPaymentId,
+      razorpayOrderId,
+      razorpaySignature,
+      cart,
+      email,
+      shippingAddress
+    } = requestData;
+
+    // Verify payment signature
     const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
-    hmac.update(razorpayOrderId + "|" + razorpayPaymentId);
+    hmac.update(`${razorpayOrderId}|${razorpayPaymentId}`);
     const generatedSignature = hmac.digest("hex");
 
     if (generatedSignature !== razorpaySignature) {
-      throw new Error("Invalid Razorpay signature");
+      throw new Error("Payment verification failed: Invalid signature");
     }
 
-    // Step 2: Initialize Shopify API client
+    // Initialize Shopify
     const shopify = shopifyApi({
       apiKey: process.env.SHOPIFY_API_KEY,
       apiSecretKey: process.env.SHOPIFY_API_SECRET,
       hostName: process.env.SHOPIFY_STORE_URL,
-      scopes: ["write_orders"],
+      apiVersion: "2024-01",
+      isEmbeddedApp: false,
     });
 
     const client = new shopify.clients.Rest({
@@ -42,53 +71,73 @@ export async function POST(req) {
       },
     });
 
-    // Step 3: Create the order directly
-    const orderResponse = await client.post({
-      path: "/admin/api/2024-01/orders.json",
-      data: {
-        order: {
-          email,
-          financial_status: "paid",
-          line_items: cart.map((item) => ({
-            variant_id: item.id,
-            quantity: item.quantity,
-          })),
-          shipping_address: {
-            first_name: shippingAddress.firstName,
-            last_name: shippingAddress.lastName,
-            address1: shippingAddress.address1,
-            address2: shippingAddress.address2,
-            city: shippingAddress.city,
-            country: shippingAddress.country,
-            zip: shippingAddress.zip,
-            province: shippingAddress.province,
-            phone: shippingAddress.phone,
-          },
-          transactions: [
-            {
-              kind: "sale",
-              status: "success",
-              amount: cart.reduce((total, item) => total + item.price * item.quantity, 0),
-              gateway: "Razorpay",
-              gateway_reference: razorpayPaymentId,
-            },
-          ],
+    // Prepare order data
+    const orderTotal = calculateOrderTotal(cart);
+    const orderData = {
+      order: {
+        email,
+        financial_status: "paid",
+        line_items: cart.map(item => ({
+          variant_id: item.id,
+          quantity: item.quantity,
+          price: item.price // Important for auditing
+        })),
+        shipping_address: {
+          first_name: shippingAddress.firstName,
+          last_name: shippingAddress.lastName,
+          address1: shippingAddress.address1,
+          address2: shippingAddress.address2 || "",
+          city: shippingAddress.city,
+          country: shippingAddress.country,
+          zip: shippingAddress.zip,
+          province: shippingAddress.province || "",
+          phone: shippingAddress.phone || "",
         },
-      },
+        transactions: [
+          {
+            kind: "sale",
+            status: "success",
+            amount: orderTotal,
+            gateway: "Razorpay",
+            gateway_reference: razorpayPaymentId,
+          }
+        ],
+        note: `Razorpay Order ID: ${razorpayOrderId}`,
+      }
+    };
+
+    // Create Shopify order
+    const response = await client.post({
+      path: "/orders.json",
+      data: orderData,
       type: "application/json",
     });
 
-    console.log("Shopify Order Created:", orderResponse.body);
-
     return new Response(
-      JSON.stringify({ orderId: orderResponse.body.order.id }),
-      { status: 200 }
+      JSON.stringify({ 
+        success: true,
+        orderId: response.body.order.id,
+        orderNumber: response.body.order.name 
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
+
   } catch (error) {
-    console.error("Order creation failed:", error);
+    console.error(`Order processing failed: ${error.message}`);
+    
     return new Response(
-      JSON.stringify({ error: "Failed to create order" }),
-      { status: 500 }
+      JSON.stringify({ 
+        success: false,
+        error: error.message || "Order processing failed",
+        code: error.code 
+      }),
+      {
+        status: error.message.includes("Missing") ? 400 : 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
     );
   }
 }

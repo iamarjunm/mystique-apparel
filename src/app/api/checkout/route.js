@@ -5,13 +5,28 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-export async function POST(req) {
-  const { cart, email, shippingAddress, totalAmount } = await req.json();
+// Helper for validation
+function validateRequestData({ cart, email, shippingAddress, totalAmount }) {
+  if (!cart || !Array.isArray(cart) || cart.length === 0) {
+    throw new Error("Invalid cart items");
+  }
+  
+  if (typeof totalAmount !== "number" || totalAmount <= 0) {
+    throw new Error("Invalid amount");
+  }
+  
+  // Add more validation as needed
+}
 
+export async function POST(req) {
   try {
-    // Step 1: Create a Razorpay order
+    const requestData = await req.json();
+    validateRequestData(requestData);
+    
+    const { cart, email, shippingAddress, totalAmount } = requestData;
+
     const razorpayOrder = await razorpay.orders.create({
-      amount: Math.round(totalAmount * 100), // Convert to paise
+      amount: Math.round(totalAmount * 100),
       currency: "INR",
       receipt: `order_${Date.now()}`,
       notes: {
@@ -21,25 +36,33 @@ export async function POST(req) {
       },
     });
 
-    console.log("Razorpay Order Created:", razorpayOrder);
-
-    // Step 2: Return the Razorpay order ID to the frontend
     return new Response(
       JSON.stringify({
+        success: true,
         orderId: razorpayOrder.id,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency,
       }),
       {
         status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
       }
     );
   } catch (error) {
-    console.error("Error creating Razorpay order:", error);
+    console.error("Error in payment processing:", error.message);
+    
     return new Response(
-      JSON.stringify({ error: "Failed to create Razorpay order" }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message || "Payment processing failed" 
+      }),
       {
-        status: 500,
+        status: error instanceof TypeError ? 400 : 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
       }
     );
   }
