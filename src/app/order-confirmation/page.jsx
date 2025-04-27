@@ -1,37 +1,49 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle, AlertCircle, Truck, CreditCard, Package } from "lucide-react";
 import Link from "next/link";
 
-const OrderConfirmationPage = () => {
-  const searchParams = useSearchParams();
-  const [orderDetails, setOrderDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// Loading component
+const LoadingSpinner = () => (
+  <div className="min-h-screen bg-black text-white flex items-center justify-center">
+    <div className="text-center space-y-4">
+      <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-400" />
+      <h1 className="text-2xl font-bold">Loading your order details</h1>
+      <p className="text-gray-400">Please wait while we fetch your order</p>
+    </div>
+  </div>
+);
 
-  useEffect(() => {
-    const fetchOrderDetails = async () => {
-      try {
-        const orderId = searchParams.get("orderId");
-        if (!orderId) throw new Error("Missing order ID");
+// Error component
+const ErrorDisplay = ({ error, onRetry }) => (
+  <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+    <div className="max-w-md text-center space-y-6">
+      <div className="space-y-2">
+        <AlertCircle className="h-12 w-12 text-red-400 mx-auto" />
+        <h1 className="text-2xl font-bold">Order Not Found</h1>
+        <p className="text-gray-400">{error}</p>
+      </div>
+      <div className="flex justify-center gap-4">
+        <button
+          onClick={onRetry}
+          className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-200 transition"
+        >
+          Try Again
+        </button>
+        <Link 
+          href="/" 
+          className="bg-gray-800 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition"
+        >
+          Return to Home
+        </Link>
+      </div>
+    </div>
+  </div>
+);
 
-        const response = await fetch(`/api/orders/${orderId}`);
-        if (!response.ok) throw new Error("Failed to fetch order");
-        
-        const data = await response.json();
-        setOrderDetails(data);
-      } catch (err) {
-        console.error("Error:", err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchOrderDetails();
-  }, [searchParams]);
-
+// Main order content component
+const OrderContent = ({ orderDetails }) => {
   const formatDate = (dateString) => {
     if (!dateString) return "Date not available";
     try {
@@ -46,38 +58,6 @@ const OrderConfirmationPage = () => {
       return "Date not available";
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-400" />
-          <h1 className="text-2xl font-bold">Loading your order details</h1>
-          <p className="text-gray-400">Please wait while we fetch your order</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-        <div className="max-w-md text-center space-y-6">
-          <div className="space-y-2">
-            <AlertCircle className="h-12 w-12 text-red-400 mx-auto" />
-            <h1 className="text-2xl font-bold">Order Not Found</h1>
-            <p className="text-gray-400">{error}</p>
-          </div>
-          <Link 
-            href="/" 
-            className="bg-white text-black px-6 py-3 rounded-lg font-medium inline-block hover:bg-gray-200 transition"
-          >
-            Return to Home
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const requiresShipping = orderDetails?.shippingMethod && 
                          orderDetails.shippingMethod.toLowerCase() !== "no shipping";
@@ -239,6 +219,70 @@ const OrderConfirmationPage = () => {
       </div>
     </div>
   );
+};
+
+// Main page component with Suspense boundary
+const OrderConfirmationPage = () => {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <OrderConfirmationContent />
+    </Suspense>
+  );
+};
+
+// Inner component that uses useSearchParams
+const OrderConfirmationContent = () => {
+  const searchParams = useSearchParams();
+  const [orderDetails, setOrderDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchOrderDetails = async (orderId) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`);
+      if (!response.ok) throw new Error("Failed to fetch order");
+      return await response.json();
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  useEffect(() => {
+    const loadOrder = async () => {
+      try {
+        const orderId = searchParams.get("orderId");
+        if (!orderId) throw new Error("Missing order ID");
+        
+        const data = await fetchOrderDetails(orderId);
+        setOrderDetails(data);
+      } catch (err) {
+        console.error("Error:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOrder();
+  }, [searchParams]);
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    const orderId = searchParams.get("orderId");
+    if (orderId) {
+      fetchOrderDetails(orderId)
+        .then(setOrderDetails)
+        .catch(err => setError(err.message))
+        .finally(() => setLoading(false));
+    }
+  };
+
+  if (loading) return <LoadingSpinner />;
+  if (error) return <ErrorDisplay error={error} onRetry={handleRetry} />;
+  if (!orderDetails) return <ErrorDisplay error="No order data found" onRetry={handleRetry} />;
+
+  return <OrderContent orderDetails={orderDetails} />;
 };
 
 export default OrderConfirmationPage;
