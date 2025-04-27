@@ -25,6 +25,10 @@ export async function POST(req) {
     
     const { cart, email, shippingAddress, totalAmount } = requestData;
 
+    if (isNaN(totalAmount) || totalAmount <= 0) {
+      throw new Error(`Invalid totalAmount: ${totalAmount}`);
+    }    
+
     const razorpayOrder = await razorpay.orders.create({
       amount: Math.round(totalAmount * 100),
       currency: "INR",
@@ -35,7 +39,7 @@ export async function POST(req) {
         cart: JSON.stringify(cart),
       },
     });
-
+    
     return new Response(
       JSON.stringify({
         success: true,

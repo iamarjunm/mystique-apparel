@@ -6,18 +6,18 @@ import { motion } from "framer-motion";
 const categories = [
   {
     name: "Oversized T-Shirts",
-    slug: "oversized-tshirts",
-    image: "https://picsum.photos/600/800?random=2",
+    slug: "oversized-t-shirts",
+    image: "/tshirt.jpg",
   },
   {
     name: "Joggers",
     slug: "joggers",
-    image: "https://picsum.photos/600/800?random=3",
+    image: "/joggers.jpg",
   },
   {
     name: "Hoodies",
     slug: "hoodies",
-    image: "https://picsum.photos/600/800?random=4",
+    image: "/hoodie.jpg",
   },
 ];
 
@@ -37,7 +37,7 @@ export default function Categories() {
             transition={{ duration: 0.4, ease: "easeOut" }}
             className="relative group overflow-hidden rounded-3xl shadow-[0px_0px_50px_rgba(255,255,255,0.2)] w-[300px]"
           >
-            <Link href={`/category/${category.slug}`}>
+            <Link href={`/categories/${category.slug}`}>
               <div className="relative h-[400px] w-full rounded-3xl overflow-hidden">
                 <img
                   src={category.image}

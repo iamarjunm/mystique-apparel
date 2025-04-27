@@ -10,11 +10,25 @@ const razorpay = new Razorpay({
 // Helper to calculate order total consistently
 function calculateOrderTotal(cart) {
   return cart.reduce((total, item) => {
-    if (!item.price || !item.quantity) {
-      throw new Error("Invalid cart item");
+    if (typeof item.price !== "number" || typeof item.quantity !== "number") {
+      throw new Error(`Invalid cart item: ${JSON.stringify(item)}`);
     }
-    return total + item.price * item.quantity;
+    return total + (item.price * item.quantity);
   }, 0);
+}
+
+// Validate shipping address structure
+function validateShippingAddress(address) {
+  const requiredFields = [
+    'firstName', 'lastName', 'address1', 
+    'city', 'country', 'zip', 'phone'
+  ];
+  
+  for (const field of requiredFields) {
+    if (!address[field]) {
+      throw new Error(`Missing shipping address field: ${field}`);
+    }
+  }
 }
 
 export async function POST(req) {
@@ -43,7 +57,8 @@ export async function POST(req) {
       razorpaySignature,
       cart,
       email,
-      shippingAddress
+      shippingAddress,
+      shippingOption // Optional shipping option
     } = requestData;
 
     // Verify payment signature
@@ -55,32 +70,42 @@ export async function POST(req) {
       throw new Error("Payment verification failed: Invalid signature");
     }
 
+    console.log(hmac);
+
+    // Validate shipping address
+    validateShippingAddress(shippingAddress);
+    const hostname = process.env.SHOPIFY_STORE_URL.replace(/^https?:\/\//, ''); 
+
     // Initialize Shopify
     const shopify = shopifyApi({
       apiKey: process.env.SHOPIFY_API_KEY,
       apiSecretKey: process.env.SHOPIFY_API_SECRET,
-      hostName: process.env.SHOPIFY_STORE_URL,
+      hostName: hostname,
       apiVersion: "2024-01",
       isEmbeddedApp: false,
     });
 
-    const client = new shopify.clients.Rest({
+    const client = new shopify.rest.RestClient({
       session: {
-        shop: process.env.SHOPIFY_STORE_URL,
+        shop: hostname,
         accessToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN,
       },
     });
+    
 
-    // Prepare order data
+    // Calculate order total
     const orderTotal = calculateOrderTotal(cart);
+    
+    // Prepare base order data
     const orderData = {
       order: {
         email,
         financial_status: "paid",
         line_items: cart.map(item => ({
-          variant_id: item.id,
+          variant_id: item.variantId, // Changed from item.id to item.variantId
           quantity: item.quantity,
-          price: item.price // Important for auditing
+          price: item.price,
+          name: item.title // Added product title
         })),
         shipping_address: {
           first_name: shippingAddress.firstName,
@@ -91,7 +116,7 @@ export async function POST(req) {
           country: shippingAddress.country,
           zip: shippingAddress.zip,
           province: shippingAddress.province || "",
-          phone: shippingAddress.phone || "",
+          phone: shippingAddress.phone,
         },
         transactions: [
           {
@@ -106,6 +131,18 @@ export async function POST(req) {
       }
     };
 
+    // Add shipping line if shipping option provided
+    if (shippingOption) {
+      orderData.order.shipping_lines = [{
+        title: shippingOption.title,
+        price: parseFloat(shippingOption.price.toString().replace(/[^\d.]/g, '')),
+        code: shippingOption.id
+      }];
+      
+      // Add shipping method to order notes
+      orderData.order.note += `\nShipping Method: ${shippingOption.title} (${shippingOption.price})`;
+    }
+
     // Create Shopify order
     const response = await client.post({
       path: "/orders.json",
@@ -113,11 +150,17 @@ export async function POST(req) {
       type: "application/json",
     });
 
+    // Verify order was created successfully
+    if (!response.body.order?.id) {
+      throw new Error("Shopify order creation failed - no order ID returned");
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true,
         orderId: response.body.order.id,
-        orderNumber: response.body.order.name 
+        orderNumber: response.body.order.name,
+        shopifyOrder: response.body.order // Return full order data for debugging
       }),
       {
         status: 200,
@@ -126,16 +169,23 @@ export async function POST(req) {
     );
 
   } catch (error) {
-    console.error(`Order processing failed: ${error.message}`);
+    console.error(`Order processing failed:`, error);
+    
+    // Determine appropriate status code
+    const statusCode = error.message.includes("Missing") ? 400 : 
+                      error.message.includes("Invalid") ? 422 : 500;
     
     return new Response(
       JSON.stringify({ 
         success: false,
         error: error.message || "Order processing failed",
-        code: error.code 
+        details: process.env.NODE_ENV === 'development' ? {
+          stack: error.stack,
+          code: error.code
+        } : null
       }),
       {
-        status: error.message.includes("Missing") ? 400 : 500,
+        status: statusCode,
         headers: { 'Content-Type': 'application/json' }
       }
     );

@@ -436,20 +436,6 @@ const AddressSection = ({ user, updateAddress, deleteAddress }) => {
               />
             </div>
 
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isPrimary"
-                name="isPrimary"
-                checked={formData.isPrimary}
-                onChange={handleInputChange}
-                className="mr-2"
-              />
-              <label htmlFor="isPrimary" className="text-gray-300">
-                Set as primary address
-              </label>
-            </div>
-
             <div className="flex justify-end gap-2 pt-4">
               <button
                 onClick={resetForm}

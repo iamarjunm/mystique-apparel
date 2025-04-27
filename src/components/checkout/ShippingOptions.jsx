@@ -187,11 +187,16 @@ const ShippingOptions = ({
                 <div className="text-right">
                   <p className="text-lg">{rate.price}</p>
                   <button
-                    onClick={() => setSelectedShippingRate(rate)}
-                    className="mt-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
-                  >
-                    {selectedShippingRate?.id === rate.id ? "Selected" : "Select"}
-                  </button>
+  type="button" // Add this line
+  onClick={(e) => {
+    e.preventDefault(); // Prevent default behavior
+    e.stopPropagation(); // Stop event bubbling
+    setSelectedShippingRate(rate);
+  }}
+  className="mt-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+>
+  {selectedShippingRate?.id === rate.id ? "Selected" : "Select"}
+</button>
                 </div>
               </div>
             </div>

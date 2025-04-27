@@ -27,9 +27,9 @@ export default function HomePage() {
       </section>
 
       {/* Testimonials Section */}
-      <section>
+      {/* <section>
         <Testimonials />
-      </section>
+      </section> */}
       
       <section>
         <Newsletter />

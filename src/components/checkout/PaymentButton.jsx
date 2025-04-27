@@ -36,12 +36,13 @@ const PaymentButton = ({
 
   const handleClick = (e) => {
     e.preventDefault();
+    e.stopPropagation(); // Add this line
     console.log('Payment button clicked', {
       isDisabled,
       razorpayReady: isRazorpayReady,
       windowRazorpay: window.Razorpay !== undefined
     });
-
+  
     if (!isDisabled && onClick) {
       onClick(e);
     } else {

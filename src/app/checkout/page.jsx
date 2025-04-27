@@ -15,8 +15,9 @@ const CheckoutPage = () => {
   const { user } = useUser();
   const router = useRouter();
 
+  // Initialize form data with user information if available
   const [formData, setFormData] = useState({
-    fullName: user?.fullName || "",
+    fullName: user ? `${user.firstName} ${user.lastName}` : "",
     email: user?.email || "",
     alternateContactNumber: "",
   });
@@ -35,17 +36,46 @@ const CheckoutPage = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
   const [selectedShippingRate, setSelectedShippingRate] = useState(null);
   const [shippingRates, setShippingRates] = useState([]);
   const [error, setError] = useState("");
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
+  // Sync form data when user changes
   useEffect(() => {
-    // Check if script is already loaded
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: `${user.firstName} ${user.lastName}`,
+        email: user.email || prev.email
+      }));
+      
+      setShippingAddress(prev => ({
+        ...prev,
+        firstName: user.firstName || prev.firstName,
+        lastName: user.lastName || prev.lastName,
+        phone: user.phone || prev.phone,
+        ...(user.address ? {
+          address1: user.address.address1,
+          address2: user.address.address2,
+          city: user.address.city,
+          country: user.address.country,
+          zip: user.address.zip,
+          province: user.address.province
+        } : {})
+      }));
+    }
+  }, [user]);
+  
+
+  useEffect(() => {
+    // Load Razorpay script
     if (window.Razorpay) {
       setRazorpayLoaded(true);
       return;
     }
+    
     if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
       console.error("Missing Razorpay key ID in env");
       setError("Payment system error. Please contact support.");
@@ -56,11 +86,9 @@ const CheckoutPage = () => {
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
     script.onload = () => {
-      console.log("Razorpay script loaded");
       setRazorpayLoaded(true);
     };
     script.onerror = () => {
-      console.error("Failed to load Razorpay script");
       setError("Failed to load payment processor. Please refresh the page.");
     };
     document.body.appendChild(script);
@@ -74,12 +102,12 @@ const CheckoutPage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleShippingAddressChange = (e) => {
     const { name, value } = e.target;
-    setShippingAddress((prev) => ({ ...prev, [name]: value }));
+    setShippingAddress(prev => ({ ...prev, [name]: value }));
   };
 
   const handleShippingAddressSubmit = (address) => {
@@ -101,9 +129,6 @@ const CheckoutPage = () => {
       if (!response.ok) {
         throw new Error("Failed to update address");
       }
-
-      const data = await response.json();
-      console.log("Address updated successfully:", data);
     } catch (error) {
       console.error("Error updating address:", error);
       throw error;
@@ -114,104 +139,111 @@ const CheckoutPage = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
-    // Validate required fields
-    if (
-      !formData.fullName ||
-      !formData.email ||
-      !shippingAddress.firstName ||
-      !shippingAddress.lastName ||
-      !shippingAddress.address1 ||
-      !shippingAddress.city ||
-      !shippingAddress.province ||
-      !shippingAddress.zip ||
-      !shippingAddress.phone
-    ) {
-      setError("Please fill all required fields.");
-      setLoading(false);
-      return;
-    }
-
-    if (!window.Razorpay || !razorpayLoaded) {
-      setError("Payment system not ready. Please wait...");
-      setLoading(false);
-      return;
-    }
-
+  
     try {
+      // Validate inputs
+      if (!selectedShippingRate) throw new Error("Please select shipping method");
+      if (!formData.email) throw new Error("Email is required");
+      if (!shippingAddress.phone) throw new Error("Phone number is required");
+  
+      // Create Razorpay order
       const razorpayResponse = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cart,
+          cart: cart.map(item => ({
+            variantId: item.variantId,
+            quantity: item.quantity,
+            price: item.price
+          })),
           email: formData.email,
           shippingAddress,
-          totalAmount: cart.reduce((total, item) => total + item.price * item.quantity, 0) + (selectedShippingRate?.price || 0),
-          selectedShippingRate,
+          totalAmount: total,
+          selectedShippingRate
         }),
       });
-
+  
       if (!razorpayResponse.ok) {
-        throw new Error("Failed to create payment order");
+        const errorData = await razorpayResponse.json();
+        throw new Error(errorData.error || "Payment initialization failed");
       }
-
-      const razorpayData = await razorpayResponse.json();
-      console.log("Razorpay Data:", razorpayData);
-
-      const options = {
+  
+      const { orderId: razorpayOrderId } = await razorpayResponse.json();
+  
+      // Initialize Razorpay payment
+      const rzp = new window.Razorpay({
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: razorpayData.amount,
+        amount: total * 100, // Razorpay expects amount in paise
         currency: "INR",
-        name: "Mystique Apparel",
-        description: "Payment for your order",
-        order_id: razorpayData.orderId,
+        name: "Your Store Name",
+        order_id: razorpayOrderId,
         handler: async (response) => {
           try {
-            const checkoutResponse = await fetch("/api/create-shopify-checkout", {
+            setLoading(true);
+            
+            // Create Shopify order
+            const orderResponse = await fetch("/api/create-shopify-order", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
-                cart,
+                cart: cart.map(item => ({
+                  variantId: item.variantId,
+                  quantity: item.quantity,
+                  price: item.price
+                })),
                 email: formData.email,
-                shippingAddress,
+                shippingAddress: {
+                  ...shippingAddress,
+                  countryCode: 'IN'
+                },
+                shippingOption: {
+                  title: selectedShippingRate.title,
+                  price: selectedShippingRate.price,
+                  code: selectedShippingRate.code || 'standard'
+                },
+                totalAmount: total
               }),
             });
-
-            if (!checkoutResponse.ok) {
-              throw new Error("Failed to create Shopify order");
+  
+            if (!orderResponse.ok) {
+              const errorData = await orderResponse.json();
+              throw new Error(errorData.error || "Order creation failed");
             }
-
-            router.push("/order-confirmation");
+  
+            const orderData = await orderResponse.json();
+            router.push(`/order-confirmation?orderId=${orderData.orderId}`);
+            
           } catch (error) {
-            console.error("Order creation error:", error);
-            setError("Order creation failed. Please contact support.");
+            console.error("Order processing error:", error);
+            setError(`Payment succeeded but order failed. Contact support with ID: ${response.razorpay_payment_id}`);
+            // Consider sending this error to your error tracking system
+          } finally {
+            setLoading(false);
           }
         },
         prefill: {
-          name: formData.fullName || `${shippingAddress.firstName} ${shippingAddress.lastName}`,
+          name: formData.fullName,
           email: formData.email,
           contact: shippingAddress.phone,
         },
         notes: {
-          address: `${shippingAddress.address1}, ${shippingAddress.address2}, ${shippingAddress.city}, ${shippingAddress.country}, ${shippingAddress.zip}`,
-        },
-        theme: {
-          color: "#F37254",
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (response) => {
-        console.error("Payment failed:", response.error);
-        setError(`Payment failed: ${response.error.description}`);
+          internalNote: "Created via web checkout"
+        }
       });
+  
+      rzp.on("payment.failed", (response) => {
+        setError(`Payment failed: ${response.error.description}`);
+        // Consider logging this to your error tracking system
+      });
+  
       rzp.open();
+  
     } catch (error) {
-      console.error("Checkout error:", error);
-      setError(error.message || "Checkout failed. Please try again.");
+      setError(error.message);
+      // Consider more user-friendly messages for common errors
     } finally {
       setLoading(false);
     }
@@ -220,9 +252,18 @@ const CheckoutPage = () => {
   return (
     <div className="container mx-auto px-6 py-12 bg-black text-white">
       <h1 className="text-4xl font-extrabold text-white text-center mb-12">Checkout</h1>
-      {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+      {error && (
+        <div className="bg-red-100 text-red-800 p-4 rounded mb-6">
+          <p className="font-medium">{error}</p>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <UserInformationForm formData={formData} handleChange={handleChange} user={user} />
+        <UserInformationForm 
+          formData={formData} 
+          handleChange={handleChange} 
+          user={user} 
+        />
         <ShippingAddressForm
           formData={shippingAddress}
           handleChange={handleShippingAddressChange}
@@ -230,15 +271,20 @@ const CheckoutPage = () => {
           updateAddress={updateAddress}
           onSubmit={handleShippingAddressSubmit}
         />
-        <ShippingOptions
-          shippingRates={shippingRates}
-          setShippingRates={setShippingRates}
-          selectedShippingRate={selectedShippingRate}
-          setSelectedShippingRate={setSelectedShippingRate}
-          shippingAddress={shippingAddress}
-          cart={cart}
-        />
-        <OrderSummary cart={cart} selectedShippingRate={selectedShippingRate} />
+         <ShippingOptions
+    shippingRates={shippingRates}
+    setShippingRates={setShippingRates}
+    selectedShippingRate={selectedShippingRate}
+    setSelectedShippingRate={setSelectedShippingRate}
+    shippingAddress={shippingAddress}
+    cart={cart}
+  />
+      
+      <OrderSummary 
+        cart={cart} 
+        selectedShippingRate={selectedShippingRate} 
+        setTotal={setTotal}
+      />
         <PaymentButton
           loading={loading}
           selectedShippingRate={selectedShippingRate}

@@ -11,7 +11,7 @@ const Shop = () => {
   const [sortOption, setSortOption] = useState("");
   const [filters, setFilters] = useState({
     category: "",
-    priceRange: [500, 2000], // ₹500 - ₹2000 Range
+    priceRange: [0, 2000], // ₹500 - ₹2000 Range
     discount: 0,
   });
 

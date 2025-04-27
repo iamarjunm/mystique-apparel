@@ -26,14 +26,14 @@ export default function Navbar() {
     {
       name: "Collections",
       subcategories: [
-        { name: "Summer Collection", href: "/collections/summer" },
-        { name: "Winter Collection", href: "/collections/winter" },
+        { name: "Summer Collection", href: "/collections/summer-collection" },
+        { name: "Winter Collection", href: "/collections/winter-collection" },
       ],
     },
     {
       name: "Categories",
       subcategories: [
-        { name: "Oversized T-Shirts", href: "/categories/oversized-tshirts" },
+        { name: "Oversized T-Shirts", href: "/categories/oversized-t-shirts" },
         { name: "Joggers", href: "/categories/joggers" },
         { name: "Hoodies", href: "/categories/hoodies" },
       ],
@@ -43,7 +43,7 @@ export default function Navbar() {
   // Profile dropdown items for logged-in users
   const loggedInProfileItems = [
     { name: "My Account", href: "/account" },
-    { name: "Track Orders", href: "/orders" },
+    { name: "Track Orders", href: "https://mystiqueapparel.shiprocket.co/" },
     { name: "Logout", onClick: () => handleLogout() },
   ];
 
