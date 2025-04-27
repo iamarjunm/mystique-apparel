@@ -11,10 +11,16 @@ export default function Footer() {
 
         {/* Social Media */}
         <div className="flex gap-8 mt-6 md:mt-0">
-          <FiInstagram className="text-2xl hover:text-gray-400 transition-all transform hover:scale-110 cursor-pointer" />
-          <FiTwitter className="text-2xl hover:text-gray-400 transition-all transform hover:scale-110 cursor-pointer" />
-          <FiFacebook className="text-2xl hover:text-gray-400 transition-all transform hover:scale-110 cursor-pointer" />
-        </div>
+  <a 
+    href="https://www.instagram.com/mystique_.apparel/" 
+    target="_blank" 
+    rel="noopener noreferrer"
+    className="text-2xl hover:text-gray-400 transition-all transform hover:scale-110 cursor-pointer"
+  >
+    <FiInstagram />
+  </a>
+</div>
+
       </div>
 
       {/* Copyright */}
