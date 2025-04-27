@@ -88,7 +88,7 @@ export default function Hero() {
   return (
     <section
       ref={heroRef} // Attach the ref to the Hero section
-      className="relative h-screen flex items-center justify-center text-center overflow-hidden bg-black"
+      className="relative h-screen flex items-end justify-center text-center overflow-hidden bg-black pb-20" // Changed to items-end and added pb-20
     >
       {/* Background Image with Parallax Effect */}
       <motion.div
@@ -102,7 +102,7 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/80"></div>
       </motion.div>
 
-      {/* Content */}
+      {/* Content - Moved to bottom */}
       <div className="relative z-10 px-4 sm:px-6 md:px-12 text-white">
         {/* Animated Heading */}
         <motion.h1
@@ -111,7 +111,7 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.5 }}
         >
-          Bold, Dark Fashion Awaits
+          Drawing Out Your Mystique
         </motion.h1>
 
         {/* Animated Subheading */}
