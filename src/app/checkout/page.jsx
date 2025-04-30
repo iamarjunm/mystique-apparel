@@ -9,11 +9,26 @@ import ShippingAddressForm from "@/components/checkout/ShippingAddressForm";
 import ShippingOptions from "@/components/checkout/ShippingOptions";
 import OrderSummary from "@/components/checkout/OrderSummary";
 import PaymentButton from "@/components/checkout/PaymentButton";
+import Link from "next/link";
 
 const CheckoutPage = () => {
   const { cart } = useCart();
-  const { user } = useUser();
+  const { user, isAuthenticated } = useUser();
   const router = useRouter();
+
+  // Redirect if cart is empty or user not logged in
+  useEffect(() => {
+    if (cart.length === 0) {
+      router.push("/cart");
+      return;
+    }
+
+    if (!isAuthenticated) {
+      // Store intended path for after login
+      sessionStorage.setItem('checkoutRedirect', '/checkout');
+      router.push("/account/login");
+    }
+  }, [cart, isAuthenticated, router]);
 
   // Initialize form data with user information if available
   const [formData, setFormData] = useState({
@@ -70,6 +85,8 @@ const CheckoutPage = () => {
   
 
   useEffect(() => {
+    if (!isAuthenticated) return; // Don't load payment if not authenticated
+    
     // Load Razorpay script
     if (window.Razorpay) {
       setRazorpayLoaded(true);
@@ -98,7 +115,7 @@ const CheckoutPage = () => {
         document.body.removeChild(script);
       }
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -137,6 +154,14 @@ const CheckoutPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!isAuthenticated) {
+      setError("Please login to complete your purchase");
+      sessionStorage.setItem('checkoutRedirect', '/checkout');
+      router.push("/account/login");
+      return;
+    }
+    
     setLoading(true);
     setError("");
   
@@ -219,7 +244,6 @@ const CheckoutPage = () => {
           } catch (error) {
             console.error("Order processing error:", error);
             setError(`Payment succeeded but order failed. Contact support with ID: ${response.razorpay_payment_id}`);
-            // Consider sending this error to your error tracking system
           } finally {
             setLoading(false);
           }
@@ -236,18 +260,60 @@ const CheckoutPage = () => {
   
       rzp.on("payment.failed", (response) => {
         setError(`Payment failed: ${response.error.description}`);
-        // Consider logging this to your error tracking system
       });
   
       rzp.open();
   
     } catch (error) {
       setError(error.message);
-      // Consider more user-friendly messages for common errors
     } finally {
       setLoading(false);
     }
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto px-6 py-12 bg-black text-white text-center">
+        <div className="max-w-md mx-auto bg-black/40 p-8 rounded-lg border border-white/10">
+          <h2 className="text-2xl font-bold mb-4">Login Required</h2>
+          <p className="mb-6">You need to be logged in to proceed with checkout.</p>
+          <div className="flex flex-col gap-4">
+            <Link 
+              href="/account/login" 
+              className="bg-white text-black py-3 px-6 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              onClick={() => sessionStorage.setItem('checkoutRedirect', '/checkout')}
+            >
+              Login
+            </Link>
+            <Link 
+              href="/account/register" 
+              className="border border-white py-3 px-6 rounded-lg font-medium hover:bg-white/10 transition-colors"
+              onClick={() => sessionStorage.setItem('checkoutRedirect', '/checkout')}
+            >
+              Create Account
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (cart.length === 0) {
+    return (
+      <div className="container mx-auto px-6 py-12 bg-black text-white text-center">
+        <div className="max-w-md mx-auto bg-black/40 p-8 rounded-lg border border-white/10">
+          <h2 className="text-2xl font-bold mb-4">Your Cart is Empty</h2>
+          <p className="mb-6">Add some products to your cart before checking out.</p>
+          <Link 
+            href="/shop" 
+            className="bg-white text-black py-3 px-6 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+          >
+            Continue Shopping
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-6 py-12 bg-black text-white">
@@ -271,20 +337,20 @@ const CheckoutPage = () => {
           updateAddress={updateAddress}
           onSubmit={handleShippingAddressSubmit}
         />
-         <ShippingOptions
-    shippingRates={shippingRates}
-    setShippingRates={setShippingRates}
-    selectedShippingRate={selectedShippingRate}
-    setSelectedShippingRate={setSelectedShippingRate}
-    shippingAddress={shippingAddress}
-    cart={cart}
-  />
+        <ShippingOptions
+          shippingRates={shippingRates}
+          setShippingRates={setShippingRates}
+          selectedShippingRate={selectedShippingRate}
+          setSelectedShippingRate={setSelectedShippingRate}
+          shippingAddress={shippingAddress}
+          cart={cart}
+        />
       
-      <OrderSummary 
-        cart={cart} 
-        selectedShippingRate={selectedShippingRate} 
-        setTotal={setTotal}
-      />
+        <OrderSummary 
+          cart={cart} 
+          selectedShippingRate={selectedShippingRate} 
+          setTotal={setTotal}
+        />
         <PaymentButton
           loading={loading}
           selectedShippingRate={selectedShippingRate}
