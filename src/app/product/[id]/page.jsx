@@ -1,15 +1,16 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { fetchProductById, fetchProducts } from "@/lib/fetchProducts";
 import ProductCard from "@/components/ProductCard";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCart } from "@/context/CartContext";
-import Toast from "@/components/Toast"; // Import Toast component
+import Toast from "@/components/Toast";
 
 export default function ProductDetails() {
   const { id } = useParams();
+  const router = useRouter();
   const [product, setProduct] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState(null);
@@ -18,10 +19,10 @@ export default function ProductDetails() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const [showToast, setShowToast] = useState(false); // State for toast visibility
+  const [showToast, setShowToast] = useState(false);
 
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
-  const { addToCart } = useCart();
+  const { addToCart, removeFromCart } = useCart();
 
   useEffect(() => {
     const getProduct = async () => {
@@ -105,14 +106,31 @@ export default function ProductDetails() {
         return;
       }
   
-      // Construct the proper Shopify cart URL
-      const checkoutUrl = `${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL}/cart/${selectedVariant.id}:${quantity}`;
+      // Extract just the numeric ID from the variant ID
+      const variantId = selectedVariant.id.split('/').pop();
+  
+      // Clear any existing items in cart
+      removeFromCart(selectedVariant.id);
       
-      // Verify the URL is correct
-      console.log("Redirecting to:", checkoutUrl);
+      // Add the current item to cart with quantity
+      addToCart({
+        id: product.id,
+        variantId: selectedVariant.id, // Keep the full variant ID for your cart context
+        title: product.title,
+        price: parseFloat(product.price),
+        image: product.images[0],
+        size: selectedSize,
+        quantity: quantity,
+        productHandle: product.handle,
+      });
+  
+      // Redirect to your Next.js checkout page
+      router.push('/checkout');
       
-      // Redirect to checkout
-      window.location.href = checkoutUrl;
+      // Alternative if you want to use Shopify's native checkout:
+      // const checkoutUrl = `${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL}/cart/${variantId}:${quantity}`;
+      // window.location.href = checkoutUrl;
+  
     } catch (error) {
       console.error("Error during checkout:", error);
       alert("Failed to proceed to checkout. Please try again.");
