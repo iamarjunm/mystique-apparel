@@ -88,14 +88,35 @@ export default function ProductDetails() {
     }
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!selectedSize) {
       alert("Please select a size before proceeding.");
       return;
     }
-
-    const checkoutUrl = `${process.env.SHOPIFY_STORE_URL}/cart/${product.variants[0].id}:${quantity}`;
-    window.location.href = checkoutUrl;
+  
+    try {
+      // Find the matching variant by selected size
+      const selectedVariant = product.variants.find(
+        variant => variant.title === selectedSize || variant.size === selectedSize
+      );
+  
+      if (!selectedVariant) {
+        alert("Selected variant not found.");
+        return;
+      }
+  
+      // Construct the proper Shopify cart URL
+      const checkoutUrl = `${process.env.NEXT_PUBLIC_SHOPIFY_STORE_URL}/cart/${selectedVariant.id}:${quantity}`;
+      
+      // Verify the URL is correct
+      console.log("Redirecting to:", checkoutUrl);
+      
+      // Redirect to checkout
+      window.location.href = checkoutUrl;
+    } catch (error) {
+      console.error("Error during checkout:", error);
+      alert("Failed to proceed to checkout. Please try again.");
+    }
   };
 
   const handleAddToCart = () => {

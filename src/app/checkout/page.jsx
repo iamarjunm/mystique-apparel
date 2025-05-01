@@ -13,7 +13,7 @@ import Link from "next/link";
 
 const CheckoutPage = () => {
   const { cart } = useCart();
-  const { user, isAuthenticated } = useUser();
+  const { user } = useUser();
   const router = useRouter();
 
   // Redirect if cart is empty or user not logged in
@@ -23,12 +23,12 @@ const CheckoutPage = () => {
       return;
     }
 
-    if (!isAuthenticated) {
+    if (!user) {
       // Store intended path for after login
       sessionStorage.setItem('checkoutRedirect', '/checkout');
       router.push("/account/login");
     }
-  }, [cart, isAuthenticated, router]);
+  }, [cart, user, router]);
 
   // Initialize form data with user information if available
   const [formData, setFormData] = useState({
@@ -85,7 +85,7 @@ const CheckoutPage = () => {
   
 
   useEffect(() => {
-    if (!isAuthenticated) return; // Don't load payment if not authenticated
+    if (!user) return; // Don't load payment if not authenticated
     
     // Load Razorpay script
     if (window.Razorpay) {
@@ -115,7 +115,7 @@ const CheckoutPage = () => {
         document.body.removeChild(script);
       }
     };
-  }, [isAuthenticated]);
+  }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -155,7 +155,7 @@ const CheckoutPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!isAuthenticated) {
+    if (!user) {
       setError("Please login to complete your purchase");
       sessionStorage.setItem('checkoutRedirect', '/checkout');
       router.push("/account/login");
@@ -271,7 +271,7 @@ const CheckoutPage = () => {
     }
   };
 
-  if (!isAuthenticated) {
+  if (!user) {
     return (
       <div className="container mx-auto px-6 py-12 bg-black text-white text-center">
         <div className="max-w-md mx-auto bg-black/40 p-8 rounded-lg border border-white/10">

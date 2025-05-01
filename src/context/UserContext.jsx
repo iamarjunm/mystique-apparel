@@ -9,9 +9,11 @@ const UserContext = createContext();
 
 export const useUser = () => useContext(UserContext);
 
+
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  
 
   // Fetch user data (existing code)
   const fetchUserData = async (token) => {
