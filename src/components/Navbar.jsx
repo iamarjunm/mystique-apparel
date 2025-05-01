@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { FiShoppingCart, FiHeart, FiMenu, FiX, FiUser, FiChevronDown } from "react-icons/fi";
 import Link from "next/link";
-import { useWishlist } from "@/context/WishlistContext"; // Wishlist context
-import { useCart } from "@/context/CartContext"; // Cart context
-import { useUser } from "@/context/UserContext"; // User context
+import { useWishlist } from "@/context/WishlistContext";
+import { useCart } from "@/context/CartContext";
+import { useUser } from "@/context/UserContext";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {
@@ -40,29 +40,27 @@ export default function Navbar() {
     },
   ];
 
-  // Profile dropdown items for logged-in users
+  // Profile dropdown items
   const loggedInProfileItems = [
     { name: "My Account", href: "/account" },
     { name: "Track Orders", href: "https://mystiqueapparel.shiprocket.co/" },
     { name: "Logout", onClick: () => handleLogout() },
   ];
 
-  // Profile dropdown items for logged-out users
   const loggedOutProfileItems = [
     { name: "Login", href: "/account/login" },
     { name: "Register", href: "/account/register" },
   ];
 
-  // Handle logout
   const handleLogout = () => {
     logout();
     router.push("/");
   };
 
   return (
-    <header className="fixed top-0 left-0 w-full bg-black/40 backdrop-blur-lg text-white z-50 shadow-[0px_10px_30px_rgba(255,255,255,0.05)] transition-all duration-300">
+    <header className="fixed top-0 left-0 w-full bg-black/40 backdrop-blur-lg text-white z-50 shadow-[0px_10px_30px_rgba(255,255,255,0.05)]">
       <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-        {/* Logo */}
+        {/* Logo - Visible on both mobile and desktop */}
         <Link href="/" className="flex items-center">
           <img
             src="https://cdn.shopify.com/s/files/1/0591/7045/5631/files/mystique_white.webp?v=1717770206"
@@ -88,15 +86,12 @@ export default function Navbar() {
                 <div className="flex gap-12">
                   {shopCategories.map((category) => (
                     <div key={category.name} className="space-y-4">
-                      {/* Main Category Link */}
                       <Link
                         href={category.href || "#"}
                         className="block px-6 py-2 text-white hover:bg-white/10 transition-all font-semibold text-lg"
                       >
                         {category.name}
                       </Link>
-  
-                      {/* Subcategories */}
                       {category.subcategories && (
                         <div className="pl-6 space-y-2">
                           {category.subcategories.map((subcategory) => (
@@ -150,7 +145,7 @@ export default function Navbar() {
 
           {/* Profile Dropdown */}
           <div
-            className="relative group"
+            className="relative group hidden md:block"
             onMouseEnter={() => setIsProfileDropdownOpen(true)}
             onMouseLeave={() => setIsProfileDropdownOpen(false)}
           >
@@ -186,104 +181,127 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <button className="md:hidden text-3xl transition-all duration-300 hover:text-gray-300" onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <FiX /> : <FiMenu />}
+            <FiMenu />
           </button>
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu Sidebar */}
       <div
-        className={`fixed top-0 left-0 w-full h-screen bg-black/90 backdrop-blur-lg flex flex-col items-center justify-center gap-8 text-2xl tracking-wide text-white transition-all duration-300 ${
-          isOpen ? "opacity-100 visible" : "opacity-0 invisible"
+        className={`fixed top-0 left-0 w-full h-screen bg-black/90 backdrop-blur-lg flex flex-col transition-all duration-300 z-50 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Shop Dropdown for Mobile */}
-        <div className="relative">
-          <button
-            className="flex items-center gap-2 hover:text-gray-300"
-            onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
+        {/* Sidebar Header with Close Button */}
+        <div className="flex justify-between items-center px-6 py-4 border-b border-white/10">
+          <Link href="/" className="flex items-center" onClick={() => setIsOpen(false)}>
+            <img
+              src="https://cdn.shopify.com/s/files/1/0591/7045/5631/files/mystique_white.webp?v=1717770206"
+              alt="Mystique Logo"
+              className="h-10 object-contain"
+            />
+          </Link>
+          <button 
+            className="text-3xl transition-all duration-300 hover:text-gray-300"
+            onClick={() => setIsOpen(false)}
           >
-            <span>Shop</span>
-            <FiChevronDown className="text-xl" />
+            <FiX />
           </button>
-          {isShopDropdownOpen && (
-            <div className="mt-4 flex flex-col items-center gap-4">
-              {shopCategories.map((category) => (
-                <div key={category.name}>
-                  {/* Main Category Link */}
-                  <Link
-                    href={category.href || "#"}
-                    className="text-xl hover:text-gray-300"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    {category.name}
-                  </Link>
-                  {/* Subcategories */}
-                  {category.subcategories && (
-                    <div className="pl-4">
-                      {category.subcategories.map((subcategory) => (
-                        <Link
-                          key={subcategory.name}
-                          href={subcategory.href}
-                          className="text-xl hover:text-gray-300"
-                          onClick={() => setIsOpen(false)}
-                        >
-                          {subcategory.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Other Links for Mobile */}
-        {["About", "Contact"].map((item) => (
-          <Link key={item} href={`/${item.toLowerCase()}`} className="relative group text-3xl" onClick={() => setIsOpen(false)}>
-            <span className="hover:text-gray-300">{item}</span>
-            <span className="absolute bottom-0 left-0 w-full h-[2px] bg-gray-300 scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></span>
-          </Link>
-        ))}
-
-        {/* Profile Dropdown for Mobile */}
-        <div className="relative">
-          <button
-            className="flex items-center gap-2 hover:text-gray-300"
-            onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-          >
-            <FiUser className="text-2xl" />
-            <FiChevronDown className="text-xl" />
-          </button>
-          {isProfileDropdownOpen && (
-            <div className="mt-4 flex flex-col items-center gap-4">
-              {user
-                ? loggedInProfileItems.map((item) => (
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Shop Dropdown */}
+          <div className="space-y-4">
+            <button
+              className="flex items-center justify-between w-full text-xl py-2"
+              onClick={() => setIsShopDropdownOpen(!isShopDropdownOpen)}
+            >
+              <span>Shop</span>
+              <FiChevronDown className={`transition-transform ${isShopDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {isShopDropdownOpen && (
+              <div className="pl-4 space-y-4">
+                {shopCategories.map((category) => (
+                  <div key={category.name} className="space-y-2">
                     <Link
-                      key={item.name}
-                      href={item.href || "#"}
-                      onClick={() => {
-                        item.onClick?.();
-                        setIsOpen(false);
-                      }}
-                      className="text-xl hover:text-gray-300"
-                    >
-                      {item.name}
-                    </Link>
-                  ))
-                : loggedOutProfileItems.map((item) => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className="text-xl hover:text-gray-300"
+                      href={category.href || "#"}
+                      className="block py-2 hover:text-gray-300"
                       onClick={() => setIsOpen(false)}
                     >
-                      {item.name}
+                      {category.name}
                     </Link>
-                  ))}
-            </div>
-          )}
+                    {category.subcategories && (
+                      <div className="pl-4 space-y-2">
+                        {category.subcategories.map((subcategory) => (
+                          <Link
+                            key={subcategory.name}
+                            href={subcategory.href}
+                            className="block py-1.5 text-gray-300 hover:text-white"
+                            onClick={() => setIsOpen(false)}
+                          >
+                            {subcategory.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Other Links */}
+          {["About", "Contact"].map((item) => (
+            <Link 
+              key={item} 
+              href={`/${item.toLowerCase()}`} 
+              className="block text-xl py-2 hover:text-gray-300" 
+              onClick={() => setIsOpen(false)}
+            >
+              {item}
+            </Link>
+          ))}
+
+          {/* Profile Dropdown */}
+          <div className="space-y-4">
+            <button
+              className="flex items-center justify-between w-full text-xl py-2"
+              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+            >
+              <span>Account</span>
+              <FiChevronDown className={`transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {isProfileDropdownOpen && (
+              <div className="pl-4 space-y-2">
+                {user
+                  ? loggedInProfileItems.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href || "#"}
+                        onClick={() => {
+                          item.onClick?.();
+                          setIsOpen(false);
+                        }}
+                        className="block py-1.5 text-gray-300 hover:text-white"
+                      >
+                        {item.name}
+                      </Link>
+                    ))
+                  : loggedOutProfileItems.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className="block py-1.5 text-gray-300 hover:text-white"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
