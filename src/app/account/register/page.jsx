@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext"; // Import useUser
 import { motion } from "framer-motion"; // Import motion for animations
 import Loader from "@/components/Loader"; // Import your loader component
+import { loginCustomer } from "@/lib/auth";
 
 const Register = () => {
   const router = useRouter();
@@ -17,7 +18,7 @@ const Register = () => {
     password: "",
   });
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const handleChange = (e) => {
@@ -26,39 +27,52 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
+    setIsLoading(true);
+    setError("");
+  
     try {
+      // 1. Registration API call
       const response = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
+  
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || "Registration failed");
-
-      // Store token and expiration time in localStorage
-      localStorage.setItem("shopifyAccessToken", data.token);
-      localStorage.setItem("expiresAt", data.expiresAt);
-
-      // Fetch user data after successful registration
-      const userData = await fetch("/api/user", {
-        headers: {
-          Authorization: `Bearer ${data.token}`,
-        },
-      }).then((res) => res.json());
-
-      // Call the login function from UserContext to update the user state
-      login(data.token, userData);
-
-      // Redirect to the account page
-      router.push("/account");
-    } catch (error) {
-      setError(error.message);
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Registration failed");
+      }
+  
+      // 2. Immediately log the user in
+      const result = await loginCustomer(formData.email, formData.password);
+  
+      if (result) {
+        // Store token and expiration
+        localStorage.setItem("shopifyAccessToken", result.token);
+        localStorage.setItem("expiresAt", result.expiresAt);
+  
+        // 3. Fetch user data
+        const userResponse = await fetch("/api/user", {
+          headers: { Authorization: `Bearer ${result.token}` }
+        });
+        
+        if (!userResponse.ok) {
+          throw new Error("Failed to fetch user data");
+        }
+  
+        const userData = await userResponse.json();
+        
+        // 4. Update user context
+        login(result.token, userData);
+  
+        // 5. Redirect to account page
+        router.push("/account");
+      }
+    } catch (err) {
+      setError(err.message || "Registration failed. Please try again.");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
