@@ -200,7 +200,7 @@ const CheckoutPage = () => {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: total * 100, // Razorpay expects amount in paise
         currency: "INR",
-        name: "Your Store Name",
+        name: "Mystique Apparel",
         order_id: razorpayOrderId,
         handler: async (response) => {
           try {
