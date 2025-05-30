@@ -14,7 +14,8 @@ const UserInformationForm = ({ formData, handleChange, user }) => {
           onChange={handleChange}
           className="w-full p-3 rounded bg-gray-800 text-white"
           required
-          readOnly={!!user}
+          // Make it readOnly ONLY if user exists AND the form data already has a fullName (to avoid accidental locking if user is loading)
+          readOnly={!!user && !!formData.fullName} 
         />
 
         {/* Email */}
@@ -26,7 +27,8 @@ const UserInformationForm = ({ formData, handleChange, user }) => {
           onChange={handleChange}
           className="w-full p-3 rounded bg-gray-800 text-white"
           required
-          readOnly={!!user}
+          // Make it readOnly ONLY if user exists AND the form data already has an email
+          readOnly={!!user && !!formData.email}
         />
       </div>
     </div>

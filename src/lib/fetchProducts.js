@@ -110,7 +110,7 @@ export async function fetchProducts() {
 
 
 export async function fetchProductById(id) {
-  const endpoint = `${process.env.SHOPIFY_STORE_URL}/api/2024-01/graphql.json`; // Updated API version
+  const endpoint = `${process.env.SHOPIFY_STORE_URL}/api/2024-01/graphql.json`;
   const query = `
       query GetProductById($id: ID!) {
         product(id: $id) {
@@ -153,8 +153,8 @@ export async function fetchProductById(id) {
                   name
                   value
                 }
-                quantityAvailable  
-                availableForSale
+                quantityAvailable  # <-- This is what we need!
+                availableForSale   # <-- This is what we need!
               }
             }
           }
@@ -203,32 +203,40 @@ export async function fetchProductById(id) {
     // Extract Image URLs
     const images = product.images.edges.map((edge) => edge.node.url);
 
-    // Extract Sizes & Stock
-    const sizes = product.variants.edges.map((variantEdge) => {
-      const variant = variantEdge.node;
-      const sizeOption = variant.selectedOptions.find((option) => option.name.toLowerCase() === "size");
-      return {
-        size: sizeOption?.value || variant.title, // Fallback to variant title
-        available: variant.availableForSale,
-        stock: variant.quantityAvailable ?? 0,
-      };
-    });
+    // The 'sizes' array you created before is useful for display,
+    // but the 'variants' array is what you'll use for selection.
+    // It's good to keep the stock and availability directly on the variant object itself.
 
     return {
       id: product.id,
-      handle: product.handle, // Add handle here
+      handle: product.handle,
       title: product.title,
       description: product.descriptionHtml,
       price: `${discountedPrice}`,
       originalPrice: originalPrice > 0 ? `${originalPrice}` : null,
       discountPercentage,
       images,
-      sizes,
       variants: product.variants.edges.map((variantEdge) => ({
         id: variantEdge.node.id,
         title: variantEdge.node.title,
         price: `${variantEdge.node.price.amount}`,
+        compareAtPrice: `${variantEdge.node.compareAtPrice?.amount || 0}`, // Include compareAtPrice for variants
+        selectedOptions: variantEdge.node.selectedOptions, // Keep selected options for displaying variant details
+        inventoryQuantity: variantEdge.node.quantityAvailable, // <-- ADD THIS LINE
+        availableForSale: variantEdge.node.availableForSale, // <-- ADD THIS LINE
       })),
+      // If you still need 'sizes' for a specific display purpose, keep it.
+      // Otherwise, you might simplify or derive from the 'variants' array.
+      // For now, I'll keep it as you had it, but remember the variant data is primary.
+      sizes: product.variants.edges.map((variantEdge) => {
+        const variant = variantEdge.node;
+        const sizeOption = variant.selectedOptions.find((option) => option.name.toLowerCase() === "size");
+        return {
+          size: sizeOption?.value || variant.title,
+          available: variant.availableForSale,
+          stock: variant.quantityAvailable ?? 0,
+        };
+      }),
     };
   } catch (error) {
     console.error('Error fetching product:', error);

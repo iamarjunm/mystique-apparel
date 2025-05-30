@@ -1,3 +1,5 @@
+// app/checkout/page.jsx (or wherever your CheckoutPage component is)
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -16,19 +18,15 @@ const CheckoutPage = () => {
   const { user } = useUser();
   const router = useRouter();
 
-  // Redirect if cart is empty or user not logged in
+  // Redirect if cart is empty
   useEffect(() => {
     if (cart.length === 0) {
       router.push("/cart");
       return;
     }
-
-    if (!user) {
-      // Store intended path for after login
-      sessionStorage.setItem('checkoutRedirect', '/checkout');
-      router.push("/account/login");
-    }
-  }, [cart, user, router]);
+    // Removed the !user redirect to /account/login
+    // Users can now proceed as guests
+  }, [cart, router]);
 
   // Initialize form data with user information if available
   const [formData, setFormData] = useState({
@@ -57,7 +55,7 @@ const CheckoutPage = () => {
   const [error, setError] = useState("");
   const [razorpayLoaded, setRazorpayLoaded] = useState(false);
 
-  // Sync form data when user changes
+  // Sync form data when user changes (relevant only if user logs in during the session)
   useEffect(() => {
     if (user) {
       setFormData(prev => ({
@@ -85,9 +83,7 @@ const CheckoutPage = () => {
   
 
   useEffect(() => {
-    if (!user) return; // Don't load payment if not authenticated
-    
-    // Load Razorpay script
+    // Load Razorpay script regardless of user login status for guest checkout
     if (window.Razorpay) {
       setRazorpayLoaded(true);
       return;
@@ -97,7 +93,7 @@ const CheckoutPage = () => {
       console.error("Missing Razorpay key ID in env");
       setError("Payment system error. Please contact support.");
       return;
-    }    
+    }     
   
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
@@ -115,7 +111,7 @@ const CheckoutPage = () => {
         document.body.removeChild(script);
       }
     };
-  }, [user]);
+  }, []); // Removed 'user' from dependency array to allow script to load for guests
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -131,42 +127,52 @@ const CheckoutPage = () => {
     setShippingAddress(address);
   };
 
-  const updateAddress = async (address) => {
+  // The updateAddress function is primarily for logged-in users to save addresses.
+  // For guest users, this function won't be called, or it should handle a null token gracefully.
+  const updateAddress = async (token, addressId, addressData) => {
     try {
-      const token = localStorage.getItem("shopifyAccessToken");
+      // For guest checkout, there won't be a token, so skip the API call to update address.
+      // The address will just be used for this order.
+      if (!token) {
+        console.log("No token provided for address update. Proceeding as guest.");
+        return; // Or handle guest address saving if that's a desired feature
+      }
+      
+      console.log("Sending update request with:", { token, addressId, address: addressData });
+
       const response = await fetch("/api/update-address", {
-        method: "POST",
+        method: "POST", // Or PUT if your API is idempotent for updates
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`, // Pass the token in the header
         },
-        body: JSON.stringify({ address }),
+        // Send addressId and the actual address data
+        body: JSON.stringify({ token, addressId, address: addressData }), 
       });
 
       if (!response.ok) {
-        throw new Error("Failed to update address");
+        const errorDetails = await response.json();
+        throw new Error(errorDetails.message || "Failed to update address on server.");
       }
+      console.log("Address updated successfully!");
+      return response.json(); // Return the response data if needed
     } catch (error) {
       console.error("Error updating address:", error);
-      throw error;
+      throw error; // Re-throw to be caught by ShippingAddressForm
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!user) {
-      setError("Please login to complete your purchase");
-      sessionStorage.setItem('checkoutRedirect', '/checkout');
-      router.push("/account/login");
-      return;
-    }
+    // Removed the !user check here, allowing guests to proceed
+    // The previous check forced login, now it's optional.
     
     setLoading(true);
     setError("");
   
     try {
-      // Validate inputs
+      // Validate inputs (still required for guests)
       if (!selectedShippingRate) throw new Error("Please select shipping method");
       if (!formData.email) throw new Error("Email is required");
       if (!shippingAddress.phone) throw new Error("Phone number is required");
@@ -184,7 +190,9 @@ const CheckoutPage = () => {
           email: formData.email,
           shippingAddress,
           totalAmount: total,
-          selectedShippingRate
+          selectedShippingRate,
+          // You might want to pass a flag to your backend to indicate guest checkout
+          isGuestCheckout: !user, 
         }),
       });
   
@@ -229,7 +237,8 @@ const CheckoutPage = () => {
                   price: selectedShippingRate.price,
                   code: selectedShippingRate.code || 'standard'
                 },
-                totalAmount: total
+                totalAmount: total,
+                isGuestCheckout: !user, // Pass this flag to the order creation API as well
               }),
             });
   
@@ -254,7 +263,7 @@ const CheckoutPage = () => {
           contact: shippingAddress.phone,
         },
         notes: {
-          internalNote: "Created via web checkout"
+          internalNote: user ? "Created via web checkout (Logged in)" : "Created via web checkout (Guest)"
         }
       });
   
@@ -271,32 +280,8 @@ const CheckoutPage = () => {
     }
   };
 
-  if (!user) {
-    return (
-      <div className="container mx-auto px-6 py-12 bg-black text-white text-center">
-        <div className="max-w-md mx-auto bg-black/40 p-8 rounded-lg border border-white/10">
-          <h2 className="text-2xl font-bold mb-4">Login Required</h2>
-          <p className="mb-6">You need to be logged in to proceed with checkout.</p>
-          <div className="flex flex-col gap-4">
-            <Link 
-              href="/account/login" 
-              className="bg-white text-black py-3 px-6 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-              onClick={() => sessionStorage.setItem('checkoutRedirect', '/checkout')}
-            >
-              Login
-            </Link>
-            <Link 
-              href="/account/register" 
-              className="border border-white py-3 px-6 rounded-lg font-medium hover:bg-white/10 transition-colors"
-              onClick={() => sessionStorage.setItem('checkoutRedirect', '/checkout')}
-            >
-              Create Account
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Removed the entire `if (!user)` block.
+  // Users can now proceed to the form directly.
 
   if (cart.length === 0) {
     return (
@@ -328,13 +313,11 @@ const CheckoutPage = () => {
         <UserInformationForm 
           formData={formData} 
           handleChange={handleChange} 
-          user={user} 
+          user={user} // Still pass user, but component should adapt
         />
         <ShippingAddressForm
-          formData={shippingAddress}
-          handleChange={handleShippingAddressChange}
-          user={user}
-          updateAddress={updateAddress}
+          updateAddress={updateAddress} 
+          user={user} // Still pass user, but component should adapt for guests
           onSubmit={handleShippingAddressSubmit}
         />
         <ShippingOptions

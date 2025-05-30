@@ -66,17 +66,6 @@ const Shop = () => {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 items-center justify-center md:justify-end w-full md:w-auto">
-          {/* Category Filter */}
-          <select
-            className="bg-black text-white px-6 py-3 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 transition-all"
-            value={filters.category}
-            onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-          >
-            <option value="">All Categories</option>
-            <option value="luxury">Luxury</option>
-            <option value="clothing">Clothing</option>
-            <option value="accessories">Accessories</option>
-          </select>
 
           {/* Price Range Filter */}
           <div className="flex flex-col items-center">
