@@ -22,53 +22,53 @@ const ShippingOptions = ({
         setError(null);
         setShippingRates([]); // Clear previous rates
 
-        // Validation: Must be a 6-digit Indian PIN
         const pin = shippingAddress?.zip;
-        
+
+        // Condition for *not* fetching: pin is missing/invalid OR cart is empty
         if (!pin || !/^\d{6}$/.test(pin)) {
-          const errorMsg = "Please provide a valid 6-digit Indian PIN code.";
-          console.error(errorMsg);
-          setError(errorMsg);
+          // No need for a loud error, just a guiding message
+          setError("Please enter a valid 6-digit Indian PIN code for shipping estimates.");
+          setShippingRates([]); // Ensure no rates are shown
           return;
         }
 
-        // Don't proceed if cart is empty
         if (!cart || cart.length === 0) {
-          const errorMsg = "Your cart is empty.";
-          console.error(errorMsg);
-          setError(errorMsg);
+          setError("Your cart is empty. Add items to calculate shipping.");
+          setShippingRates([]);
           return;
         }
+        
+        // --- IMPORTANT: Only proceed if validation passes ---
 
         // Fetch weights for all cart items
+        // ... (rest of your fetchProductWeight and totalWeight calculation) ...
         const cartWithWeights = await Promise.all(
           cart.map(async (item) => {
             const variantId = item.variantId.match(/\d+$/)?.[0];
-            console.log(`Fetching weight for product ${item.id}, variant ${variantId}`);
-            
+            // console.log(`Fetching weight for product ${item.id}, variant ${variantId}`); // Keep for debug
+
             const weight = await fetchProductWeight(
               item.id,
               variantId
             );
-            
             return { ...item, weight };
           })
         );
 
         const totalWeight = cartWithWeights.reduce(
-          (sum, item) => sum + item.weight * item.quantity,
+          (sum, item) => sum + (item.weight || 0) * item.quantity, // Handle case where weight might be undefined
           0
         );
         
-
         if (totalWeight <= 0) {
-          const errorMsg = "Cart items must have valid weight to calculate shipping.";
-          console.error(errorMsg);
-          setError(errorMsg);
+          setError("Cart items must have valid weight to calculate shipping.");
+          setShippingRates([]);
           return;
         }
 
+
         // Fetch Shiprocket shipping rates
+        // ... (rest of your Shiprocket API call and response processing) ...
         const params = new URLSearchParams({
           pickup_postcode: PICKUP_POSTCODE,
           delivery_postcode: pin,
@@ -76,8 +76,8 @@ const ShippingOptions = ({
           weight: totalWeight,
         });
 
-        console.log('Shiprocket API params:', params.toString());
-        
+        // console.log('Shiprocket API params:', params.toString()); // Keep for debug
+
         const response = await fetch(
           `https://apiv2.shiprocket.in/v1/external/courier/serviceability?${params}`,
           {
@@ -89,73 +89,68 @@ const ShippingOptions = ({
           }
         );
 
-        console.log('Shiprocket API response status:', response.status);
+        // console.log('Shiprocket API response status:', response.status); // Keep for debug
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          console.error('Shiprocket API error:', errorData);
-          throw new Error(errorData.message || "Failed to fetch shipping rates.");
+          // console.error('Shiprocket API error:', errorData); // Keep for debug
+          throw new Error(errorData.message || "Failed to fetch shipping rates. Please try again.");
         }
 
         const data = await response.json();
         
-        // Check if data has the expected structure
-        if (!data?.data?.available_courier_companies) {
-          console.error('Unexpected Shiprocket response structure:', data);
-          throw new Error("No shipping options available for this location.");
+        if (!data?.data?.available_courier_companies || data.data.available_courier_companies.length === 0) {
+          setError("No shipping options available for this PIN code. Please check your address or contact support.");
+          setShippingRates([]);
+          return;
         }
 
-        // Log each company's data before transformation
-        data.data.available_courier_companies.forEach(company => {
-          console.log(`Company: ${company.courier_name}`, {
-            estimated_price: company.estimated_price,
-            rate: company.rate,
-            etd: company.etd,
-            estimated_delivery_days: company.estimated_delivery_days
-          });
-        });
-
-        // Transform the response into a more usable format
         const rates = data.data.available_courier_companies.map(company => {
-          // Check which price field is available
           const priceValue = company.estimated_price || company.rate;
-          console.log(`Processing ${company.courier_name}:`, {
-            priceValue,
-            estimated_price: company.estimated_price,
-            rate: company.rate
-          });
-          
           return {
             id: company.courier_company_id.toString(),
             title: company.courier_name,
-            price: priceValue ? `₹${priceValue}` : 'Price not available',
+            price: priceValue ? `₹${priceValue.toFixed(2)}` : 'Price not available', // Format to 2 decimal places
             deliveryTime: company.estimated_delivery_days 
               ? `${company.estimated_delivery_days} business days`
               : company.etd || "3-5 business days",
           };
         });
 
-        console.log('Formatted shipping rates:', rates);
         setShippingRates(rates);
+        // Automatically select the first rate if none is selected
+        if (!selectedShippingRate && rates.length > 0) {
+            setSelectedShippingRate(rates[0]);
+        }
       } catch (err) {
-        console.error("Shipping error:", err);
-        setError(err.message || "Error fetching shipping rates.");
+        console.error("Shipping rates fetch error:", err);
+        setError(err.message || "An unexpected error occurred while fetching shipping rates.");
       } finally {
         setLoading(false);
-        console.log('Finished shipping rates fetch attempt');
+        // console.log('Finished shipping rates fetch attempt'); // Keep for debug
       }
     };
 
-    if (shippingAddress?.zip && cart?.length > 0) {
-      console.log('Conditions met - fetching shipping rates');
+    // Only fetch if zip is valid AND cart has items
+    const hasValidZip = shippingAddress?.zip && /^\d{6}$/.test(shippingAddress.zip);
+    const hasCartItems = cart?.length > 0;
+
+    if (hasValidZip && hasCartItems) {
+      // console.log('Conditions met - fetching shipping rates'); // Keep for debug
       fetchShippingRates();
     } else {
-      console.log('Conditions not met for fetching shipping rates:', {
-        hasZip: !!shippingAddress?.zip,
-        hasCartItems: cart?.length > 0
-      });
+      // console.log('Conditions not met for fetching shipping rates:', { hasValidZip, hasCartItems }); // Keep for debug
+      setShippingRates([]); // Clear rates if conditions not met
+      setSelectedShippingRate(null); // Clear selected rate
+      if (!hasValidZip) {
+        setError("Please enter a valid 6-digit Indian PIN code to view shipping options.");
+      } else if (!hasCartItems) {
+        setError("Your cart is empty. Add items to calculate shipping.");
+      } else {
+         setError(null); // Clear error if conditions are just not met yet (e.g., waiting for user input)
+      }
     }
-  }, [shippingAddress, cart, setShippingRates]);
+  }, [shippingAddress?.zip, cart, setShippingRates, setSelectedShippingRate]);
 
   // Rest of the component remains the same...
   return (
