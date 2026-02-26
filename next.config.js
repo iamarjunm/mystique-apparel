@@ -8,16 +8,15 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "**.shopify.com",
+        hostname: "cdn.sanity.io",
       },
     ],
   },
   env: {
-    SHOPIFY_API_KEY: process.env.SHOPIFY_API_KEY,
-    SHOPIFY_API_SECRET: process.env.SHOPIFY_API_SECRET,
-    SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN,
-    SHOPIFY_STORE_URL: process.env.SHOPIFY_STORE_URL,
     NEXT_PUBLIC_RAZORPAY_KEY_ID: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+    NEXT_PUBLIC_SANITY_PROJECT_ID: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
+    NEXT_PUBLIC_SANITY_DATASET: process.env.NEXT_PUBLIC_SANITY_DATASET,
+    NEXT_PUBLIC_SANITY_TOKEN: process.env.NEXT_PUBLIC_SANITY_TOKEN,
   },
 };
 
