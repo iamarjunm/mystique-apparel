@@ -26,28 +26,53 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = (product) => {
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.variantId === product.variantId);
+      // Create unique identifier combining variantId, size, and color
+      const uniqueId = `${product.variantId}-${product.size}-${product.color}`;
+      const existingItem = prevCart.find((item) => {
+        const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
+        return itemUniqueId === uniqueId;
+      });
+      
       if (existingItem) {
-        return prevCart.map((item) =>
-          item.variantId === product.variantId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+        return prevCart.map((item) => {
+          const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
+          return itemUniqueId === uniqueId
+            ? { ...item, quantity: item.quantity + product.quantity }
+            : item;
+        });
       } else {
-        return [...prevCart, { ...product, quantity: 1 }];
+        return [...prevCart, { ...product, quantity: product.quantity || 1 }];
       }
     });
   };
   
-  const removeFromCart = (variantId) => {
-    setCart((prevCart) => prevCart.filter((item) => item.variantId !== variantId));
+  const removeFromCart = (variantId, size, color) => {
+    setCart((prevCart) => {
+      // If size and color provided, remove specific variant
+      if (size && color) {
+        return prevCart.filter((item) => {
+          const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
+          const targetUniqueId = `${variantId}-${size}-${color}`;
+          return itemUniqueId !== targetUniqueId;
+        });
+      }
+      // Otherwise remove by variantId only (backward compatibility)
+      return prevCart.filter((item) => item.variantId !== variantId);
+    });
   };
   
-  const updateQuantity = (variantId, newQuantity) => {
+  const updateQuantity = (variantId, newQuantity, size, color) => {
     setCart((prevCart) =>
-      prevCart.map((item) =>
-        item.variantId === variantId ? { ...item, quantity: newQuantity } : item
-      )
+      prevCart.map((item) => {
+        // If size and color provided, match specific variant
+        if (size && color) {
+          const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
+          const targetUniqueId = `${variantId}-${size}-${color}`;
+          return itemUniqueId === targetUniqueId ? { ...item, quantity: newQuantity } : item;
+        }
+        // Otherwise match by variantId only (backward compatibility)
+        return item.variantId === variantId ? { ...item, quantity: newQuantity } : item;
+      })
     );
   };
   

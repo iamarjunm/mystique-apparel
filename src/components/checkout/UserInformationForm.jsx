@@ -2,33 +2,38 @@ import React from "react";
 
 const UserInformationForm = ({ formData, handleChange, user }) => {
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-6">User Information</h2>
-      <div className="space-y-4">
+    <div className="bg-gradient-to-br from-gray-900/60 to-black p-3 sm:p-4 md:p-5 rounded-xl border border-gray-700/50 backdrop-blur shadow-xl">
+      <h2 className="text-base sm:text-lg md:text-xl font-bold mb-3 sm:mb-4 text-white">👤 Contact Information</h2>
+      <div className="space-y-2.5 sm:space-y-3.5">
         {/* Full Name */}
-        <input
-          type="text"
-          name="fullName"
-          placeholder="Full Name"
-          value={formData.fullName}
-          onChange={handleChange}
-          className="w-full p-3 rounded bg-gray-800 text-white"
-          required
-          // Make it readOnly ONLY if user exists AND the form data already has a fullName (to avoid accidental locking if user is loading)
-          readOnly={!!user && !!formData.fullName} 
-        />
+        <div>
+          <label className="block text-xs sm:text-sm font-semibold mb-1.5 text-gray-300">Full Name *</label>
+          <input
+            type="text"
+            name="fullName"
+            placeholder="John Doe"
+            value={formData.fullName}
+            onChange={handleChange}
+            className="w-full p-2 sm:p-2.5 rounded-lg bg-gray-800/50 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
+            required
+            readOnly={!!user && !!formData.fullName}
+          />
+        </div>
 
         {/* Email */}
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          value={formData.email}
-          onChange={handleChange}
-          className="w-full p-3 rounded bg-gray-800 text-white"
-          required
-          readOnly={!!user && !!formData.email}
-        />
+        <div>
+          <label className="block text-xs sm:text-sm font-semibold mb-1.5 text-gray-300">Email Address *</label>
+          <input
+            type="email"
+            name="email"
+            placeholder="john@example.com"
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full p-2 sm:p-2.5 rounded-lg bg-gray-800/50 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
+            required
+            readOnly={!!user && !!formData.email}
+          />
+        </div>
       </div>
     </div>
   );

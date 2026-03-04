@@ -2,7 +2,6 @@
 
 import { createContext, useState, useContext, useEffect } from "react";
 import { initiateRazorpayPayment } from "@/lib/razorpay";
-import { createCheckout } from "@/lib/shopify";
 import { toast } from "react-toastify";
 
 const UserContext = createContext();
@@ -279,18 +278,15 @@ export const UserProvider = ({ children }) => {
   // New function: Handle checkout
   const handleCheckout = async (cart, email, shippingAddress) => {
     try {
-      // Create Shopify checkout
-      const lineItems = cart.map((item) => ({
-        variantId: item.id,
-        quantity: item.quantity,
-      }));
-
-      const checkout = await createCheckout(lineItems, email, shippingAddress);
+      // Calculate order totals
+      const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+      const shippingCost = 0; // Set based on your logic
+      const tax = 0; // Set based on your logic
+      const total = subtotal + shippingCost + tax;
 
       // Initiate Razorpay payment
       const orderDetails = {
-        id: checkout.id,
-        amount: cart.reduce((total, item) => total + item.price * item.quantity, 0),
+        amount: total,
         user: {
           name: `${user?.firstName} ${user?.lastName}`,
           email: user?.email || email,
@@ -302,7 +298,7 @@ export const UserProvider = ({ children }) => {
       console.log("Payment successful:", paymentResponse);
 
       // Redirect to order confirmation page
-      window.location.href = `/order-confirmation?checkoutId=${checkout.id}`;
+      window.location.href = `/order-confirmation?orderId=${paymentResponse.id}`;
     } catch (error) {
       console.error("Checkout error:", error);
       toast.error("Checkout failed. Please try again.");

@@ -4,20 +4,38 @@ import Newsletter from "@/components/Newsletter";
 import { motion } from "framer-motion";
 import { Send } from "lucide-react";
 import { useState } from "react";
+import { client } from "@/sanity";
 
 export default function ContactPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert(`Message sent successfully!`);
-    setEmail("");
-    setMessage("");
+    setLoading(true);
+
+    try {
+      await client.create({
+        _type: "contactForm",
+        email,
+        message,
+      });
+      setSuccess(true);
+      setEmail("");
+      setMessage("");
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      alert("Error sending message. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="relative bg-black py-20 px-0 border-t border-white/10">
+    <div className="relative bg-gradient-to-br from-black via-gray-950 to-black min-h-screen py-20 px-0 border-t border-white/10">
       {/* Subtle Glow Effect */}
       <div className="absolute inset-0 bg-gradient-to-b from-gray-900/40 via-black to-black opacity-100"></div>
 
@@ -61,11 +79,19 @@ export default function ContactPage() {
           {/* Submit Button */}
           <button
             type="submit"
-            className="self-center mt-4 bg-gradient-to-r from-white to-gray-500 text-black px-6 py-3 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all duration-300 transform hover:scale-105 flex items-center gap-2 font-bold uppercase tracking-wide"
+            disabled={loading}
+            className="self-center mt-4 bg-gradient-to-r from-white to-gray-500 text-black px-6 py-3 rounded-full shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all duration-300 transform hover:scale-105 flex items-center gap-2 font-bold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
-            <span className="hidden md:inline">Send Message</span>
+            <span className="hidden md:inline">{loading ? "Sending..." : "Send Message"}</span>
           </button>
+
+          {/* Success Message */}
+          {success && (
+            <div className="mt-4 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-300">
+              ✓ Message sent successfully! We'll be in touch soon.
+            </div>
+          )}
         </form>
         
         <div className="mt-12 text-gray-400">

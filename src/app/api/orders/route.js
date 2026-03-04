@@ -1,5 +1,5 @@
-// app/api/orders/route.js
-import { getCustomerOrders } from "@/lib/shopify";
+import { NextResponse } from "next/server";
+import { client } from "../../../../sanity";
 
 export async function GET(request) {
   try {
@@ -7,41 +7,61 @@ export async function GET(request) {
     const email = searchParams.get('email');
     
     if (!email) {
-      return new Response(
-        JSON.stringify({ error: "Email parameter is required" }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      return NextResponse.json(
+        { error: "Email parameter is required" },
+        { status: 400 }
       );
     }
 
-    const orders = await getCustomerOrders(email);
-    
-    // Transform orders to match frontend needs
-    const transformedOrders = orders.map(order => ({
-      id: order.id,
-      orderNumber: order.order_number,
-      createdAt: order.created_at,
-      total: parseFloat(order.total_price),
-      status: order.financial_status,
-      fulfillmentStatus: order.fulfillment_status,
-      lineItems: order.line_items.map(item => ({
-        id: item.id,
-        name: item.title,
-        quantity: item.quantity,
-        price: parseFloat(item.price),
-        image: item.image?.src || null
+    const query = `*[_type == "order" && customerEmail == $email] | order(createdAt desc) {
+      _id,
+      orderNumber,
+      items[]{
+        _key,
+        productTitle,
+        quantity,
+        price,
+        "image": product->mainImage.asset->url
+      },
+      total,
+      status,
+      createdAt
+    }`
+
+    console.log('🔍 [ORDERS API] Executing Sanity query for email:', email)
+    const orders = await client.fetch(query, { email })
+    console.log('✅ [ORDERS API] Query result:', {
+      count: orders?.length || 0,
+      orders: orders?.map(o => ({ id: o._id, orderNumber: o.orderNumber, status: o.status })) || []
+    })
+
+    console.log('🔄 [ORDERS API] Transforming orders...')
+    const transformedOrders = (orders || []).map(order => ({
+      id: order._id,
+      orderNumber: order.orderNumber,
+      createdAt: order.createdAt,
+      total: Number(order.total || 0),
+      status: order.status,
+      lineItems: (order.items || []).map(item => ({
+        id: item._key || item.productTitle,
+        name: item.productTitle,
+        quantity: Number(item.quantity || 0),
+        price: Number(item.price || 0),
+        image: item.image || null,
       }))
-    }));
+    }))
 
-    return new Response(
-      JSON.stringify(transformedOrders),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
-
+    console.log('✅ [ORDERS API] Returning transformed orders:', transformedOrders.length)
+    return NextResponse.json(transformedOrders)
   } catch (error) {
-    console.error('Orders API error:', error);
-    return new Response(
-      JSON.stringify({ error: "Failed to fetch orders" }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    console.error('❌ [ORDERS API] Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    })
+    return NextResponse.json(
+      { error: "Failed to fetch orders" },
+      { status: 500 }
+    )
   }
 }

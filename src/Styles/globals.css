@@ -29,7 +29,7 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(to bottom right, #000000, #111827, #000000);
   color: var(--foreground);
   font-family: var(--font-main), serif; /* Apply Fette Gotisch globally */
 }

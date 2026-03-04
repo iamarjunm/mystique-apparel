@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from "react";
 
-const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) => {
+const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress, initialAddresses = [] }) => {
   const [availableAddresses, setAvailableAddresses] = useState([]);
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -26,9 +26,46 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) 
     isPrimary: false,
   });
 
+  const normalizePhone = (value = "") =>
+    String(value || "").replace(/^\+91\s?/, "").replace(/\D/g, "").slice(-10);
+
+  const parseName = (name = "") => {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) return { firstName: "", lastName: "" };
+    const parts = trimmed.split(/\s+/);
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ") || "",
+    };
+  };
+
+  const normalizeAddress = (address = {}) => {
+    const parsedName = parseName(address.name || "");
+    return {
+      ...address,
+      id: address.id || address._key,
+      firstName: address.firstName || parsedName.firstName || "",
+      lastName: address.lastName || parsedName.lastName || "",
+      company: address.company || "",
+      address1: address.address1 || address.street || "",
+      address2: address.address2 || "",
+      city: address.city || "",
+      country: address.country || "India",
+      province: address.province || address.state || "",
+      zip: address.zip || address.postalCode || "",
+      phone: normalizePhone(address.phone),
+      isPrimary: !!address.isPrimary,
+      _key: address._key,
+    };
+  };
+
   // Fetch user addresses on mount for LOGGED-IN users only
   useEffect(() => {
     const fetchAddresses = async () => {
+      const fallbackAddresses = Array.isArray(initialAddresses)
+        ? initialAddresses.map(normalizeAddress)
+        : [];
+
       // Only attempt to fetch addresses if a user is logged in
       if (!user) {
         setLoaded(true); // Treat as loaded for guests
@@ -40,41 +77,60 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) 
         setLoading(true);
         const token = localStorage.getItem("shopifyAccessToken");
 
-        if (!token) {
-          setError("Authentication token missing. Please log in to manage addresses.");
-          setLoaded(true);
-          setIsFormVisible(true); // Show form if no token for logged-in user
-          return;
-        }
+        let fetchedAddresses = [];
+        if (token) {
+          const response = await fetch("/api/user", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
 
-        const response = await fetch("/api/user", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch addresses");
-        }
-
-        const userData = await response.json();
-        if (userData.addresses) {
-          setAvailableAddresses(userData.addresses);
-
-          // Select initial address, primary, or first if available
-          const addressToPreSelect = initialAddress ||
-                                     userData.addresses.find(addr => addr.isPrimary) ||
-                                     userData.addresses[0];
-
-          if (addressToPreSelect) {
-            setCurrentSelectedAddress(addressToPreSelect);
-            onSubmit(addressToPreSelect); // Notify parent immediately
-          } else {
-            setIsFormVisible(true); // If no addresses, show the form to add one
+          if (response.ok) {
+            const userData = await response.json();
+            fetchedAddresses = Array.isArray(userData.addresses)
+              ? userData.addresses.map(normalizeAddress)
+              : [];
           }
+        }
+
+        const sourceAddresses = fetchedAddresses.length > 0 ? fetchedAddresses : fallbackAddresses;
+        setAvailableAddresses(sourceAddresses);
+
+        // Select initial address, primary, or first if available
+        const normalizedInitialAddress = initialAddress ? normalizeAddress(initialAddress) : null;
+        const addressToPreSelect =
+          normalizedInitialAddress ||
+          sourceAddresses.find((addr) => addr.isPrimary) ||
+          sourceAddresses[0];
+
+        if (addressToPreSelect) {
+          setCurrentSelectedAddress(addressToPreSelect);
+          setFormData((prev) => ({ ...prev, ...addressToPreSelect }));
+          onSubmit(addressToPreSelect); // Notify parent immediately
+          setIsFormVisible(false);
+        } else {
+          setIsFormVisible(true); // If no addresses, show the form to add one
         }
       } catch (error) {
         console.error("Address fetch error:", error);
-        setError("Failed to load addresses. Please try again.");
-        setIsFormVisible(true); // Fallback to showing the form on error
+        const fallbackAddresses = Array.isArray(initialAddresses)
+          ? initialAddresses.map(normalizeAddress)
+          : [];
+        setAvailableAddresses(fallbackAddresses);
+
+        const normalizedInitialAddress = initialAddress ? normalizeAddress(initialAddress) : null;
+        const addressToPreSelect =
+          normalizedInitialAddress ||
+          fallbackAddresses.find((addr) => addr.isPrimary) ||
+          fallbackAddresses[0];
+
+        if (addressToPreSelect) {
+          setCurrentSelectedAddress(addressToPreSelect);
+          setFormData((prev) => ({ ...prev, ...addressToPreSelect }));
+          onSubmit(addressToPreSelect);
+          setIsFormVisible(false);
+        } else {
+          setIsFormVisible(true);
+          setError("Failed to load addresses. Please try again.");
+        }
       } finally {
         setLoading(false);
         setLoaded(true);
@@ -82,16 +138,16 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) 
     };
 
     fetchAddresses();
-  }, [user, initialAddress, onSubmit]); // Added onSubmit to dependency array
+  }, [user, initialAddress, initialAddresses]);
 
   // Sync formData with user data if user becomes available (e.g., after login on checkout page)
   useEffect(() => {
     if (user) {
       setFormData(prev => ({
         ...prev,
-        firstName: user.firstName || prev.firstName,
-        lastName: user.lastName || prev.lastName,
-        phone: user.phone || prev.phone,
+        firstName: user.firstName || parseName(user.displayName || "").firstName || prev.firstName,
+        lastName: user.lastName || parseName(user.displayName || "").lastName || prev.lastName,
+        phone: normalizePhone(user.phone || user.phoneNumber || "") || prev.phone,
         // Don't prefill address lines from user.address directly if the user might want to add a new address
         // The fetchAddresses useEffect handles pre-selecting existing addresses.
       }));
@@ -140,36 +196,31 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) 
     setLoading(true);
 
     try {
-      const addressToUse = {
+      const addressToUse = normalizeAddress({
         ...formData,
-        phone: `+91 ${formData.phone}`,
+        phone: `+91 ${normalizePhone(formData.phone)}`,
         // Only include ID if it's an existing address for a logged-in user
         id: user ? currentSelectedAddress?.id : undefined, 
-      };
+      });
 
       if (user) {
         // For logged-in users, attempt to save/update the address on the backend
         const token = localStorage.getItem("shopifyAccessToken");
-        if (!token) {
-          setError("Authentication token missing. Please log in again.");
-          setLoading(false);
-          return;
-        }
-        if (updateAddress) {
+        if (token && updateAddress) {
           await updateAddress(token, addressToUse.id, addressToUse);
-        }
-        // After successful update for logged-in user, re-fetch addresses to ensure state is consistent
-        const response = await fetch("/api/user", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const userData = await response.json();
-          if (userData.addresses) {
-            setAvailableAddresses(userData.addresses);
+          // After successful update for logged-in user, re-fetch addresses to ensure state is consistent
+          const response = await fetch("/api/user", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.addresses) {
+              const normalizedAddresses = userData.addresses.map(normalizeAddress);
+              setAvailableAddresses(normalizedAddresses);
             // Try to find the newly added/updated address from the fetched list
-            const updatedOrNewAddress = userData.addresses.find(
+            const updatedOrNewAddress = normalizedAddresses.find(
               (addr) => addr.address1 === addressToUse.address1 && addr.phone === addressToUse.phone
-            ) || userData.addresses.find(addr => addr.id === addressToUse.id);
+            ) || normalizedAddresses.find(addr => addr.id === addressToUse.id);
             if (updatedOrNewAddress) {
               setCurrentSelectedAddress(updatedOrNewAddress);
               onSubmit(updatedOrNewAddress);
@@ -179,6 +230,17 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) 
               onSubmit(addressToUse);
             }
           }
+        }
+        } else {
+          // Fallback when token-based address API is unavailable
+          setCurrentSelectedAddress(addressToUse);
+          setAvailableAddresses((prev) => {
+            if (addressToUse.id) {
+              return prev.map((addr) => (addr.id === addressToUse.id ? addressToUse : addr));
+            }
+            return [...prev, { ...addressToUse, id: addressToUse.id || addressToUse._key }];
+          });
+          onSubmit(addressToUse);
         }
       } else {
         // For guest users, just use the form data directly
@@ -197,17 +259,33 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) 
   };
 
   const handleSelectAddress = (address) => {
-    setCurrentSelectedAddress(address);
-    onSubmit(address); // Notify parent immediately when an address is selected
+    const normalizedAddress = normalizeAddress(address);
+    setCurrentSelectedAddress(normalizedAddress);
+    // Populate form data with selected address
+    setFormData({
+      firstName: normalizedAddress.firstName || "",
+      lastName: normalizedAddress.lastName || "",
+      company: normalizedAddress.company || "",
+      address1: normalizedAddress.address1 || "",
+      address2: normalizedAddress.address2 || "",
+      city: normalizedAddress.city || "",
+      country: normalizedAddress.country || "India",
+      province: normalizedAddress.province || "",
+      zip: normalizedAddress.zip || "",
+      phone: normalizedAddress.phone || "",
+      isPrimary: normalizedAddress.isPrimary || false,
+    });
+    onSubmit(normalizedAddress); // Notify parent immediately when an address is selected
     setIsFormVisible(false); // Hide form and show list
     setError(""); // Clear errors
   };
 
   const handleEditAddress = (address) => {
-    setCurrentSelectedAddress(address);
+    const normalizedAddress = normalizeAddress(address);
+    setCurrentSelectedAddress(normalizedAddress);
     setFormData({
-      ...address,
-      phone: address.phone.replace(/^\+91\s/, "") // Remove country code for editing
+      ...normalizedAddress,
+      phone: normalizePhone(normalizedAddress.phone) // Remove country code for editing
     });
     setIsFormVisible(true); // Show the form for editing
     setError(""); // Clear errors
@@ -245,202 +323,236 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress }) 
   };
 
   return (
-    <div className="mb-8">
-      <h2 className="text-2xl font-semibold mb-4">Shipping Address</h2>
-      <div className="bg-gray-900 p-6 rounded-lg">
-        {loading && !loaded && <p className="text-green-500">Loading addresses...</p>}
-        {error && <p className="text-red-500">{error}</p>}
+    <div className="bg-gradient-to-br from-gray-900/60 to-black p-4 sm:p-5 md:p-6 rounded-xl border border-gray-700/50 backdrop-blur shadow-xl">
+      <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-4 sm:mb-5 text-white">📍 Shipping Address</h2>
+      
+      {loading && !loaded && (
+        <div className="flex items-center gap-2 text-gray-400 mb-3 text-xs sm:text-sm">
+          <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Loading your saved addresses...
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-900/50 border border-red-500 text-red-200 p-2.5 sm:p-3 rounded-lg mb-3 text-xs sm:text-sm">
+          {error}
+        </div>
+      )}
 
-        {loaded && user ? ( // Show address options if user is logged in and data is loaded
-          <>
-            {!isFormVisible && availableAddresses.length > 0 ? (
-              <div className="space-y-4">
-                {availableAddresses.map((address) => (
-                  <div
-                    key={address.id}
-                    className={`p-4 border rounded ${
-                      currentSelectedAddress?.id === address.id
-                        ? "border-green-500 bg-gray-800"
-                        : "border-gray-700"
-                    }`}
-                  >
-                    <div className="flex justify-between">
-                      <div>
-                        <p className="font-medium">
+      {loaded && user ? ( // Show address options if user is logged in and data is loaded
+        <>
+          {!isFormVisible && availableAddresses.length > 0 ? (
+            <div className="space-y-3 sm:space-y-4">
+              <p className="text-gray-400 text-xs sm:text-sm mb-3">Select a saved address or add a new one</p>
+              {availableAddresses.map((address) => (
+                <div
+                  className={`p-3 sm:p-4 border-2 rounded-lg transition-all cursor-pointer ${
+                    currentSelectedAddress?.id === address.id
+                      ? "border-white bg-gray-800"
+                      : "border-gray-700 hover:border-gray-600"
+                  }`}
+                  onClick={() => handleSelectAddress(address)}
+                  key={address.id}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-white text-sm sm:text-base">
                           {address.firstName} {address.lastName}
-                          {address.isPrimary && (
-                            <span className="text-green-400 ml-2">(Primary)</span>
-                          )}
                         </p>
-                        <p className="text-sm text-gray-400">
-                          {address.address1}, {address.address2 && `${address.address2}, `}
-                          {address.city}, {address.province}, {address.zip}
-                        </p>
-                        <p className="text-sm text-gray-400">Phone: {address.phone}</p>
+                        {address.isPrimary && (
+                          <span className="text-[10px] sm:text-xs bg-green-600 text-white px-2 py-0.5 rounded-full">Primary</span>
+                        )}
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleSelectAddress(address);
-                          }}
-                          className={`px-3 py-1 text-sm rounded ${
-                            currentSelectedAddress?.id === address.id
-                              ? "bg-green-600 text-white"
-                              : "bg-gray-700 text-white"
-                          }`}
-                        >
-                          {currentSelectedAddress?.id === address.id ? "Selected" : "Select"}
-                        </button>
-                        <button
-                          onClick={() => handleEditAddress(address)}
-                          className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600 transition"
-                        >
-                          Edit
-                        </button>
-                      </div>
+                      <p className="text-xs sm:text-sm text-gray-400 mt-1.5">
+                        {address.address1}
+                        {address.address2 && `, ${address.address2}`}
+                      </p>
+                      <p className="text-xs sm:text-sm text-gray-400">
+                        {address.city}, {address.province} {address.zip}
+                      </p>
+                      <p className="text-xs sm:text-sm text-gray-400">
+                        📱 {address.phone}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-1.5 sm:gap-2 ml-3 sm:ml-4">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleSelectAddress(address);
+                        }}
+                        className={`px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
+                          currentSelectedAddress?.id === address.id
+                            ? "bg-white text-black"
+                            : "bg-gray-700 text-white hover:bg-gray-600"
+                        }`}
+                      >
+                        {currentSelectedAddress?.id === address.id ? "✓ Selected" : "Select"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleEditAddress(address);
+                        }}
+                        className="px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                      >
+                        Edit
+                      </button>
                     </div>
                   </div>
-                ))}
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={handleAddNewAddress}
-                    className="bg-white text-black px-4 py-2 rounded hover:bg-gray-200 transition"
-                  >
-                    Add New Address
-                  </button>
                 </div>
-              </div>
-            ) : ( // Show form if isFormVisible is true OR if no addresses are available for logged-in user
-              <AddressFormContent
-                formData={formData}
-                handleInputChange={handleInputChange}
-                handleSaveAddress={handleSaveAddress}
-                handleCancelForm={handleCancelForm}
-                loading={loading}
-              />
-            )}
-          </>
-        ) : ( // If user is not logged in, or still loading for guests, show just the form
-          loaded && !user && ( // Only show form for guests once loaded
+              ))}
+              <button
+                type="button"
+                onClick={handleAddNewAddress}
+                className="w-full mt-4 bg-gray-800 border-2 border-dashed border-gray-600 hover:border-gray-500 text-white px-4 py-2.5 rounded-lg transition-colors font-medium text-sm"
+              >
+                + Add New Address
+              </button>
+            </div>
+          ) : ( // Show form if isFormVisible is true OR if no addresses are available for logged-in user
             <AddressFormContent
               formData={formData}
               handleInputChange={handleInputChange}
               handleSaveAddress={handleSaveAddress}
+              handleCancelForm={handleCancelForm}
               loading={loading}
-              // No cancel button for guests when initially filling out, as there's no previous state to revert to.
+              isEditing={!!currentSelectedAddress}
             />
-          )
-        )}
-      </div>
+          )}
+        </>
+      ) : ( // If user is not logged in, or still loading for guests, show just the form
+        loaded && !user && ( // Only show form for guests once loaded
+          <AddressFormContent
+            formData={formData}
+            handleInputChange={handleInputChange}
+            handleSaveAddress={handleSaveAddress}
+            loading={loading}
+            // No cancel button for guests when initially filling out, as there's no previous state to revert to.
+          />
+        )
+      )}
     </div>
   );
 };
 
 // Extracted form content into a separate component for reusability
-const AddressFormContent = ({ formData, handleInputChange, handleSaveAddress, handleCancelForm, loading }) => (
-  <div className="space-y-4 mt-4">
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+const AddressFormContent = ({ formData, handleInputChange, handleSaveAddress, handleCancelForm, loading, isEditing }) => (
+  <div className="space-y-3 sm:space-y-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
       <div>
-        <label className="block text-gray-400 mb-1">First Name *</label>
+        <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">First Name *</label>
         <input
           type="text"
           name="firstName"
           value={formData.firstName}
           onChange={handleInputChange}
-          className="w-full p-2 rounded bg-gray-800 text-white"
+          className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
           required
         />
       </div>
       <div>
-        <label className="block text-gray-400 mb-1">Last Name *</label>
+        <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">Last Name *</label>
         <input
           type="text"
           name="lastName"
           value={formData.lastName}
           onChange={handleInputChange}
-          className="w-full p-2 rounded bg-gray-800 text-white"
+          className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
           required
         />
       </div>
     </div>
+    
     <div>
-      <label className="block text-gray-400 mb-1">Company (Optional)</label>
+      <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">Company (Optional)</label>
       <input
         type="text"
         name="company"
         value={formData.company}
         onChange={handleInputChange}
-        className="w-full p-2 rounded bg-gray-800 text-white"
+        className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
       />
     </div>
+    
     <div>
-      <label className="block text-gray-400 mb-1">Address *</label>
+      <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">Street Address *</label>
       <input
         type="text"
         name="address1"
         value={formData.address1}
         onChange={handleInputChange}
-        className="w-full p-2 rounded bg-gray-800 text-white"
+        placeholder="House number and street name"
+        className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
         required
       />
     </div>
+    
     <div>
-      <label className="block text-gray-400 mb-1">Apartment, Suite, etc. (Optional)</label>
+      <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">Apartment, Suite, etc. (Optional)</label>
       <input
         type="text"
         name="address2"
         value={formData.address2}
         onChange={handleInputChange}
-        className="w-full p-2 rounded bg-gray-800 text-white"
+        placeholder="Apartment, floor, etc."
+        className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
       />
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
       <div>
-        <label className="block text-gray-400 mb-1">City *</label>
+        <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">City *</label>
         <input
           type="text"
           name="city"
           value={formData.city}
           onChange={handleInputChange}
-          className="w-full p-2 rounded bg-gray-800 text-white"
+          className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
           required
         />
       </div>
       <div>
-        <label className="block text-gray-400 mb-1">State *</label>
+        <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">State/Province *</label>
         <input
           type="text"
           name="province"
           value={formData.province}
           onChange={handleInputChange}
-          className="w-full p-2 rounded bg-gray-800 text-white"
+          className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
           required
         />
       </div>
       <div>
-        <label className="block text-gray-400 mb-1">ZIP Code *</label>
+        <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">PIN Code *</label>
         <input
           type="text"
           name="zip"
           value={formData.zip}
           onChange={handleInputChange}
-          className="w-full p-2 rounded bg-gray-800 text-white"
+          placeholder="6 digits"
+          className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-800/60 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
           required
           maxLength={6}
         />
       </div>
     </div>
+    
     <div>
-      <label className="block text-gray-400 mb-1">Phone *</label>
+      <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">Phone Number *</label>
       <div className="flex">
-        <div className="w-1/4">
+        <div className="w-16 sm:w-20">
           <input
             type="text"
             value="+91"
             readOnly
-            className="w-full p-2 rounded-l bg-gray-700 text-white"
+            className="w-full p-2.5 sm:p-3 rounded-l-lg bg-gray-700 text-white border border-gray-700 text-center font-medium text-xs sm:text-sm"
           />
         </div>
         <input
@@ -448,38 +560,42 @@ const AddressFormContent = ({ formData, handleInputChange, handleSaveAddress, ha
           name="phone"
           value={formData.phone}
           onChange={handleInputChange}
-          className="w-3/4 p-2 rounded-r bg-gray-800 text-white"
+          placeholder="10 digits"
+          className="flex-1 p-2.5 sm:p-3 rounded-r-lg bg-gray-800/60 text-white border border-l-0 border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
           required
           maxLength={10}
         />
       </div>
     </div>
+    
     <div>
-      <label className="block text-gray-400 mb-1">Country *</label>
+      <label className="block text-xs sm:text-sm font-semibold text-gray-300 mb-1.5">Country</label>
       <input
         type="text"
         name="country"
         value="India"
         readOnly
-        className="w-full p-2 rounded bg-gray-700 text-white"
+        className="w-full p-2.5 sm:p-3 rounded-lg bg-gray-700 text-white border border-gray-700 text-xs sm:text-sm"
       />
     </div>
 
-    <div className="flex justify-end gap-2 pt-4">
-      {handleCancelForm && ( // Only show cancel if prop is provided (i.e., for logged-in users who can switch back to selecting)
+    <div className="flex justify-end gap-2 sm:gap-3 pt-4 sm:pt-5 border-t border-gray-700">
+      {handleCancelForm && (
         <button
+          type="button"
           onClick={handleCancelForm}
-          className="px-4 py-2 border border-gray-600 text-white rounded hover:bg-gray-800 transition"
+          className="px-4 sm:px-5 py-2 border-2 border-gray-600 text-white rounded-lg hover:border-gray-500 transition-colors font-medium text-xs sm:text-sm"
         >
           Cancel
         </button>
       )}
       <button
+        type="button"
         onClick={handleSaveAddress}
-        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+        className="px-4 sm:px-5 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors font-semibold text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={loading}
       >
-        {loading ? "Saving..." : "Use Address"}
+        {loading ? "Saving..." : isEditing ? "Update Address" : "Save & Use Address"}
       </button>
     </div>
   </div>

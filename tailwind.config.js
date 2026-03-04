@@ -5,6 +5,9 @@ module.exports = {
   darkMode: 'class', // Enables dark mode via class
   theme: {
     extend: {
+      screens: {
+        'xs': '375px', // Extra small devices (small phones)
+      },
       colors: {
         'primary-bg': '#000000', // Black background for dark theme
         'primary-text': '#ffffff', // White text color

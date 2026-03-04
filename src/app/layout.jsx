@@ -1,4 +1,5 @@
 import Navbar from "@/components/Navbar";
+import AnnouncementBar from "@/components/AnnouncementBar";
 import Footer from "@/components/Footer";
 import "@/Styles/globals.css";
 import { WishlistProvider } from "@/context/WishlistContext";
@@ -21,21 +22,26 @@ export default function RootLayout({ children }) {
           <UserProvider>
             <WishlistProvider>
               <CartProvider>
-                <Navbar />
-                <main className="flex-grow pt-16">{children}</main>
+                <div className="fixed top-0 left-0 right-0 z-50">
+                  <AnnouncementBar />
+                </div>
+                <div className="relative z-40">
+                  <Navbar />
+                </div>
+                <main className="flex-grow pt-24">{children}</main>
                 <Footer />
                 {/* Add ToastContainer here */}
                 <ToastContainer
-                  position="top-right" // Position of the toasts
-                  autoClose={3000} // Auto-close after 3 seconds
-                  hideProgressBar={false} // Show progress bar
-                  newestOnTop={false} // New toasts appear below older ones
-                  closeOnClick // Close toast on click
-                  rtl={false} // Left-to-right layout
-                  pauseOnFocusLoss // Pause toast timer when window loses focus
-                  draggable // Allow dragging to dismiss
-                  pauseOnHover // Pause toast timer on hover
-                  theme="colored" // Use colored theme
+                  position="top-right"
+                  autoClose={3000}
+                  hideProgressBar={false}
+                  newestOnTop={false}
+                  closeOnClick
+                  rtl={false}
+                  pauseOnFocusLoss
+                  draggable
+                  pauseOnHover
+                  theme="colored"
                 />
               </CartProvider>
             </WishlistProvider>

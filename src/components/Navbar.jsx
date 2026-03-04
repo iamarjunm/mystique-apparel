@@ -1,21 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiShoppingCart, FiHeart, FiMenu, FiX, FiUser, FiChevronDown } from "react-icons/fi";
 import Link from "next/link";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCart } from "@/context/CartContext";
-import { useUser } from "@/context/UserContext";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { client } from "../../sanity";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [collections, setCollections] = useState([]);
+  const [categories, setCategories] = useState([]);
   const { wishlist } = useWishlist();
   const { cart } = useCart();
-  const { user, logout } = useUser();
+  const { user, userData, signOut } = useAuth();
   const router = useRouter();
+
+  // Fetch collections and categories from Sanity
+  useEffect(() => {
+    const fetchNavData = async () => {
+      try {
+        // Fetch collections
+        const collQuery = `*[_type == "collection"][0...5]{ _id, title, slug }`;
+        const collData = await client.fetch(collQuery);
+        setCollections(collData || []);
+
+        // Fetch categories
+        const catQuery = `*[_type == "category"][0...5]{ _id, title, slug }`;
+        const catData = await client.fetch(catQuery);
+        setCategories(catData || []);
+      } catch (error) {
+        console.error('[NAVBAR] Error fetching nav data:', error);
+      }
+    };
+    fetchNavData();
+  }, []);
 
   // Shop categories
   const shopCategories = [
@@ -23,27 +46,13 @@ export default function Navbar() {
       name: "All Products",
       href: "/shop",
     },
-    {
-      name: "Collections",
-      subcategories: [
-        { name: "Summer Collection", href: "/collections/summer-collection" },
-        { name: "Winter Collection", href: "/collections/winter-collection" },
-      ],
-    },
-    {
-      name: "Categories",
-      subcategories: [
-        { name: "Oversized T-Shirts", href: "/categories/oversized-t-shirts" },
-        { name: "Joggers", href: "/categories/joggers" },
-        { name: "Hoodies", href: "/categories/hoodies" },
-      ],
-    },
   ];
 
   // Profile dropdown items
   const loggedInProfileItems = [
     { name: "My Account", href: "/account" },
     { name: "Track Orders", href: "https://mystiqueapparel.shiprocket.co/" },
+    ...(userData?.isAdmin ? [{ name: "Admin Portal", href: "/admin" }] : []),
     { name: "Logout", onClick: () => handleLogout() },
   ];
 
@@ -52,13 +61,17 @@ export default function Navbar() {
     { name: "Register", href: "/account/register" },
   ];
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      router.push("/");
+    } catch (error) {
+      console.error('[NAVBAR] Logout error:', error);
+    }
   };
 
   return (
-    <header className="fixed top-0 left-0 w-full bg-black/40 backdrop-blur-lg text-white z-50 shadow-[0px_10px_30px_rgba(255,255,255,0.05)]">
+    <header className="fixed top-8 left-0 w-full bg-gradient-to-br from-black via-gray-950/60 to-black/80 backdrop-blur-lg text-white z-40 shadow-[0px_10px_30px_rgba(255,255,255,0.05)]">
       <div className="container mx-auto px-6 py-4 flex justify-between items-center">
         {/* Logo - Visible on both mobile and desktop */}
         <Link href="/" className="flex items-center">
@@ -82,31 +95,60 @@ export default function Navbar() {
               <FiChevronDown className="text-xl" />
             </button>
             {isShopDropdownOpen && (
-              <div className="absolute top-full left-0 bg-black/90 backdrop-blur-lg rounded-lg shadow-xl py-6 w-max min-w-[200px]">
-                <div className="flex gap-12">
-                  {shopCategories.map((category) => (
-                    <div key={category.name} className="space-y-4">
+              <div className="absolute top-full left-0 bg-black/90 backdrop-blur-lg rounded-lg shadow-xl py-4 px-6 w-auto min-w-[800px] max-w-6xl flex gap-12">
+                {/* All Products */}
+                <div className="min-w-[150px]">
+                  <div className="space-y-2">
+                    {shopCategories.map((item) => (
                       <Link
-                        href={category.href || "#"}
-                        className="block px-6 py-2 text-white hover:bg-white/10 transition-all font-semibold text-lg"
+                        key={item.name}
+                        href={item.href}
+                        className="block px-4 py-2 text-white hover:bg-white/10 transition-all font-semibold rounded-md"
                       >
-                        {category.name}
+                        {item.name}
                       </Link>
-                      {category.subcategories && (
-                        <div className="pl-6 space-y-2">
-                          {category.subcategories.map((subcategory) => (
-                            <Link
-                              key={subcategory.name}
-                              href={subcategory.href}
-                              className="block px-6 py-1 text-white hover:bg-white/10 transition-all text-sm"
-                            >
-                              {subcategory.name}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+
+                {/* Collections */}
+                <div className="min-w-[150px]">
+                  <p className="px-4 text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Collections</p>
+                  <div className="space-y-2">
+                    {collections.length > 0 ? (
+                      collections.map((item) => (
+                        <Link
+                          key={item._id}
+                          href={`/shop?collection=${item.slug?.current || item.slug}`}
+                          className="block px-4 py-2 text-sm text-white hover:bg-white/10 transition-all rounded-md"
+                        >
+                          {item.title}
+                        </Link>
+                      ))
+                    ) : (
+                      <p className="text-xs text-zinc-500 px-4">No collections available</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Categories */}
+                <div className="min-w-[150px]">
+                  <p className="px-4 text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Categories</p>
+                  <div className="space-y-2">
+                    {categories.length > 0 ? (
+                      categories.map((item) => (
+                        <Link
+                          key={item._id}
+                          href={`/categories/${item.slug?.current || item.slug}`}
+                          className="block px-4 py-2 text-sm text-white hover:bg-white/10 transition-all rounded-md"
+                        >
+                          {item.title}
+                        </Link>
+                      ))
+                    ) : (
+                      <p className="text-xs text-zinc-500 px-4">No categories available</p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

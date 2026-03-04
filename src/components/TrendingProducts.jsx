@@ -19,53 +19,55 @@ export default function TrendingProducts() {
   }, []);
 
   return (
-    <section className="relative bg-black text-white">
-      {/* Ethereal Glow */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black"></div>
-      <div className="absolute top-[-30%] left-1/2 transform -translate-x-1/2 w-[80vw] h-[80vw] max-w-[700px] max-h-[700px] bg-white/10 blur-[120px] opacity-20"></div>
-
-      <div className="relative z-10 px-6 md:px-12 xl:px-24">
+    <section className="relative">
+      <div className="container mx-auto px-4 sm:px-5 md:px-6 max-w-7xl">
         {/* Title Section */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: "easeOut" }}
-          className="text-center mb-12"
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="text-center mb-6 sm:mb-8"
         >
-          <h2 className="text-5xl sm:text-6xl font-black uppercase tracking-[0.12em] leading-[1.1]">
-            Trending <span className="bg-gradient-to-r from-gray-300 to-white bg-clip-text text-transparent font-extrabold">Products</span>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-[0.2em] mb-2">
+            Trending{" "}
+            <span className="bg-gradient-to-r from-zinc-300 via-white to-zinc-200 bg-clip-text text-transparent">
+              Now
+            </span>
           </h2>
-          <p className="text-lg sm:text-xl text-gray-400 max-w-xl mx-auto mt-4 leading-relaxed">
-            Must-have pieces defining oversized luxury. Limited drops, endless statement.
-          </p>
+          <div className="w-12 h-[2px] bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
         </motion.div>
 
         {/* Product Grid */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-12"
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
         >
           {products.length === 0 ? (
-            <p className="text-center text-white">Loading products...</p>
+            <div className="col-span-full text-center py-12">
+              <p className="text-zinc-400 animate-pulse">Loading products...</p>
+            </div>
           ) : (
             products.map((product) => <ProductCard key={product.id} product={product} />)
           )}
         </motion.div>
 
-        {/* Load More Button */}
+        {/* View All Button */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: "easeOut", delay: 0.5 }}
-          className="mt-16 text-center"
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
+          className="mt-6 sm:mt-8 text-center"
         >
           <Link
             href="/shop"
-            className="inline-block px-10 py-4 text-lg font-semibold uppercase tracking-wide border border-white text-white rounded-full transition-all duration-500 hover:bg-white hover:text-black shadow-[0px_0px_20px_rgba(255,255,255,0.3)] hover:shadow-[0px_0px_40px_rgba(255,255,255,0.6)]"
+            className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase tracking-[0.2em] bg-white/5 border border-white/10 text-white transition-all duration-300 hover:bg-white hover:text-black hover:border-white group"
           >
-            Load More
+            <span>Explore All</span>
+            <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
           </Link>
         </motion.div>
       </div>

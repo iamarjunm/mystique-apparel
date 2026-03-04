@@ -1,490 +1,309 @@
 // src/lib/fetchProducts.js
 
-export async function fetchProducts() {
-  const endpoint = `${process.env.SHOPIFY_STORE_URL}/api/2023-01/graphql.json`;
-  const query = `
-    query {
-      products(first: 40) {
-        edges {
-          node {
-            id
-            title
-            handle
-            descriptionHtml
-            priceRange {
-              minVariantPrice {
-                amount
-                currencyCode
-              }
-            }
-            compareAtPriceRange {
-              minVariantPrice {
-                amount
-                currencyCode
-              }
-            }
-            images(first: 2) {
-              edges {
-                node {
-                  src
-                }
-              }
-            }
-            variants(first: 1) {
-              edges {
-                node {
-                  compareAtPrice {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  `;
+import { client, urlFor } from '../../sanity'
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+const portableTextToPlain = (blocks) => {
+  if (!Array.isArray(blocks)) return ''
+  return blocks
+    .map((block) => Array.isArray(block.children)
+      ? block.children.map((child) => child.text).join('')
+      : '')
+    .join('\n')
+}
+
+const mapProduct = (product) => {
+  const price = Number(product.price || 0)
+  const originalPrice = product.compareAtPrice ? Number(product.compareAtPrice) : null
+  const discountPercentage = originalPrice && originalPrice > price
+    ? Math.round(((originalPrice - price) / originalPrice) * 100)
+    : 0
+
+  const descriptionText = portableTextToPlain(product.description)
+
+  const frontImage = product.mainImage?.asset?._ref
+    ? urlFor(product.mainImage).width(800).height(1000).url()
+    : product.mainImageUrl || null
+
+  const backImage = product.gallery?.[0]?.asset?._ref
+    ? urlFor(product.gallery[0]).width(800).height(1000).url()
+    : product.gallery?.[0]?.asset?.url || null
+
+  const mainImageUrl = product.mainImage?.asset?._ref
+    ? urlFor(product.mainImage).width(800).height(1000).url()
+    : product.mainImageUrl || null
+
+  // Get all gallery images
+  const galleryImages = product.gallery?.map(img => {
+    if (img?.asset?._ref) {
+      return urlFor(img).width(800).height(1000).url()
+    }
+    return img?.asset?.url || null
+  }).filter(Boolean) || []
+
+  const images = [mainImageUrl, ...galleryImages].filter(Boolean)
+
+  // Extract unique colors from variants and map with stock info
+  const variants = product.variants || []
+  
+  const availableColors = variants.map(v => v.color).filter(Boolean)
+  
+  // Calculate total stock from all color variants and all sizes
+  const totalStock = variants.reduce((sum, variant) => {
+    // Try both stock and sizeStock properties
+    const variantStock = variant.stock || 0
+    const sizeStock = variant.sizeStock || {}
+    const sizeStockTotal = Object.values(sizeStock).reduce((s, stock) => s + (stock || 0), 0)
+    return sum + (variantStock > 0 ? variantStock : sizeStockTotal)
+  }, 0)
+
+  // Use availableSizes from schema, fallback to all sizes if not defined
+  const allSizeOptions = ['xxs', 'xs', 's', 'm', 'l', 'xl', 'xxl']
+  const availableSizes = product.availableSizes && product.availableSizes.length > 0 
+    ? product.availableSizes 
+    : allSizeOptions
+
+  return {
+    id: product._id,
+    slug: product.slug?.current || product.slug,
+    title: product.title,
+    description: descriptionText,
+    price,
+    originalPrice,
+    discountPercentage,
+    frontImage: frontImage || mainImageUrl,
+    backImage: backImage || frontImage,
+    images,
+    featured: product.featured || false,
+    newArrival: product.newArrival || false,
+    bestseller: product.bestseller || false,
+    totalStock,
+    material: product.material || null,
+    careInstructions: product.careInstructions || null,
+    sizeGuide: product.sizeGuide || null,
+    weight: product.weight || null,
+    availableColors: availableColors,
+    availableSizes: availableSizes,
+    variants: variants.map((variant) => ({
+      id: variant._key || `${product._id}-${variant.color?._id}`,
+      color: {
+        id: variant.color?._id,
+        name: variant.color?.name,
+        hexCode: variant.color?.hexCode,
+        slug: variant.color?.slug?.current || variant.color?.slug,
       },
-      body: JSON.stringify({ query }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error fetching products data:', response.status, errorData);
-      return [];
-    }
-
-    const data = await response.json();
-
-    if (data.errors) {
-      console.error('GraphQL errors:', data.errors);
-      return [];
-    }
-
-    const products = data.data.products.edges.map((productEdge) => {
-      const product = productEdge.node;
-
-      // Extract prices
-      const originalPrice = parseFloat(
-        product.variants.edges[0]?.node.compareAtPrice?.amount || 
-        product.compareAtPriceRange.minVariantPrice.amount || 
-        0
-      );
-      const discountedPrice = parseFloat(product.priceRange.minVariantPrice.amount);
-      const discountPercentage = originalPrice
-        ? Math.round(((originalPrice - discountedPrice) / originalPrice) * 100)
-        : 0;
-
-      // Extract images
-      const images = product.images.edges.map((edge) => edge.node.src);
-      const frontImage = images[0] || 'https://picsum.photos/200/200'; // Fallback if no image
-      const backImage = images[1] || frontImage; // Use frontImage as fallback for backImage
-
+      sizeStock: variant.sizeStock || {
+        xxs: 0,
+        xs: 0,
+        s: 0,
+        m: 0,
+        l: 0,
+        xl: 0,
+        xxl: 0,
+      },
+      priceAdjustment: variant.priceAdjustment || 0,
+    })),
+    sizes: availableSizes.map((size) => {
+      // Calculate total stock for this size across all colors
+      const sizeTotal = variants.reduce((sum, variant) => {
+        const stock = variant.sizeStock?.[size] || 0
+        return sum + stock
+      }, 0)
       return {
-        id: product.id,
-        handle: product.handle, // Add handle here
-        title: product.title,
-        description: product.descriptionHtml,
-        price: `${discountedPrice}`, // Remove currency code for Rs
-        originalPrice: originalPrice > 0 ? `${originalPrice}` : null, // Remove currency code for Rs
-        discountPercentage,
-        frontImage, // Correctly assign frontImage
-        backImage, // Correctly assign backImage
-      };
-    });
-
-    return products;
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    return [];
+        size,
+        available: sizeTotal > 0,
+        stock: sizeTotal,
+      }
+    }),
   }
 }
 
-
-export async function fetchProductById(id) {
-  const endpoint = `${process.env.SHOPIFY_STORE_URL}/api/2024-01/graphql.json`;
-  const query = `
-      query GetProductById($id: ID!) {
-        product(id: $id) {
-          id
-          title
-          handle
-          descriptionHtml
-          priceRange {
-            minVariantPrice {
-              amount
-            }
-            maxVariantPrice {
-              amount
-            }
-          }
-          compareAtPriceRange {
-            minVariantPrice {
-              amount
-            }
-          }
-          images(first: 10) {
-            edges {
-              node {
-                url
-              }
-            }
-          }
-          variants(first: 10) {
-            edges {
-              node {
-                id
-                title
-                price {
-                  amount
-                }
-                compareAtPrice {
-                  amount
-                }
-                selectedOptions {
-                  name
-                  value
-                }
-                quantityAvailable  # <-- This is what we need!
-                availableForSale   # <-- This is what we need!
-              }
-            }
-          }
-        }
-      }
-  `;
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+export async function fetchProducts() {
+  console.log('🛍️  [SANITY] fetchProducts called')
+  const query = `*[_type == "product"]|order(_createdAt desc){
+    _id,
+    title,
+    slug,
+    price,
+    compareAtPrice,
+    mainImage,
+    gallery,
+    featured,
+    newArrival,
+    bestseller,
+    material,
+    careInstructions,
+    sizeGuide,
+    weight,
+    availableSizes,
+    variants[]{
+      _key,
+      color->{
+        _id,
+        name,
+        hexCode,
+        "slug": slug.current
       },
-      body: JSON.stringify({ query, variables: { id } }),
-    });
-
-    if (!response.ok) {
-      console.error('Error fetching product data:', response.status, await response.text());
-      return null;
+      sizeStock,
+      priceAdjustment
     }
+  }`
 
-    const { data, errors } = await response.json();
+  console.log('🔍 [SANITY] Executing query:', query)
+  const products = await client.fetch(query)
+  console.log('✅ [SANITY] fetchProducts result:', {
+    count: products?.length || 0,
+    products: products?.map(p => ({ id: p._id, title: p.title })) || []
+  })
+  return Array.isArray(products) ? products.map(mapProduct) : []
+}
 
-    if (errors) {
-      console.error('GraphQL errors:', errors);
-      return null;
+export async function fetchProductById(slugOrId) {
+  console.log('🛍️  [SANITY] fetchProductById called with:', slugOrId)
+  const query = `*[_type == "product" && (slug.current == $slug || _id == $id)][0]{
+    _id,
+    title,
+    slug,
+    price,
+    compareAtPrice,
+    mainImage,
+    gallery,
+    description,
+    featured,
+    newArrival,
+    bestseller,
+    material,
+    careInstructions,
+    sizeGuide,
+    weight,
+    availableSizes,
+    variants[]{
+      _key,
+      color->{
+        _id,
+        name,
+        hexCode,
+        "slug": slug.current
+      },
+      sizeStock,
+      priceAdjustment
     }
+  }`
 
-    const product = data.product;
-    if (!product) {
-      console.error('Product not found');
-      return null;
-    }
-
-    // Extract first variant safely
-    const firstVariant = product.variants.edges[0]?.node || {};
-    const originalPrice = parseFloat(firstVariant.compareAtPrice?.amount || 0);
-    const discountedPrice = parseFloat(product.priceRange.minVariantPrice.amount || 0);
-
-    // Calculate Discount Percentage Safely
-    const discountPercentage = (originalPrice && originalPrice > discountedPrice)
-      ? Math.round(((originalPrice - discountedPrice) / originalPrice) * 100)
-      : 0;
-
-    // Extract Image URLs
-    const images = product.images.edges.map((edge) => edge.node.url);
-
-    // The 'sizes' array you created before is useful for display,
-    // but the 'variants' array is what you'll use for selection.
-    // It's good to keep the stock and availability directly on the variant object itself.
-
-    return {
-      id: product.id,
-      handle: product.handle,
-      title: product.title,
-      description: product.descriptionHtml,
-      price: `${discountedPrice}`,
-      originalPrice: originalPrice > 0 ? `${originalPrice}` : null,
-      discountPercentage,
-      images,
-      variants: product.variants.edges.map((variantEdge) => ({
-        id: variantEdge.node.id,
-        title: variantEdge.node.title,
-        price: `${variantEdge.node.price.amount}`,
-        compareAtPrice: `${variantEdge.node.compareAtPrice?.amount || 0}`, // Include compareAtPrice for variants
-        selectedOptions: variantEdge.node.selectedOptions, // Keep selected options for displaying variant details
-        inventoryQuantity: variantEdge.node.quantityAvailable, // <-- ADD THIS LINE
-        availableForSale: variantEdge.node.availableForSale, // <-- ADD THIS LINE
-      })),
-      // If you still need 'sizes' for a specific display purpose, keep it.
-      // Otherwise, you might simplify or derive from the 'variants' array.
-      // For now, I'll keep it as you had it, but remember the variant data is primary.
-      sizes: product.variants.edges.map((variantEdge) => {
-        const variant = variantEdge.node;
-        const sizeOption = variant.selectedOptions.find((option) => option.name.toLowerCase() === "size");
-        return {
-          size: sizeOption?.value || variant.title,
-          available: variant.availableForSale,
-          stock: variant.quantityAvailable ?? 0,
-        };
-      }),
-    };
-  } catch (error) {
-    console.error('Error fetching product:', error);
-    return null;
-  }
+  console.log('🔍 [SANITY] Executing query with params:', { slug: slugOrId, id: slugOrId })
+  const product = await client.fetch(query, { slug: slugOrId, id: slugOrId })
+  console.log('✅ [SANITY] fetchProductById result:', product ? {
+    id: product._id,
+    title: product.title,
+    slug: product.slug,
+    variantsCount: product.variants?.length || 0,
+    availableSizes: product.availableSizes || []
+  } : 'NOT FOUND')
+  if (!product) return null
+  return mapProduct(product)
 }
 
 export async function fetchCollectionByHandle(handle) {
-  const endpoint = `${process.env.SHOPIFY_STORE_URL}/api/2023-01/graphql.json`;
-
-  const query = `
-    query getCollection($handle: String!) {
-      collectionByHandle(handle: $handle) {
-        id
-        title
-        handle
-        products(first: 100) {
-          edges {
-            node {
-              id
-              title
-              handle
-              descriptionHtml
-              priceRange {
-                minVariantPrice {
-                  amount
-                  currencyCode
-                }
-              }
-              compareAtPriceRange {
-                minVariantPrice {
-                  amount
-                  currencyCode
-                }
-              }
-              images(first: 2) {
-                edges {
-                  node {
-                    src
-                  }
-                }
-              }
-              variants(first: 1) {
-                edges {
-                  node {
-                    compareAtPrice {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+  console.log('📦 [SANITY] fetchCollectionByHandle called with:', handle)
+  const query = `*[_type == "collection" && slug.current == $handle][0]{
+    _id,
+    title,
+    slug,
+    products[]->{
+      _id,
+      title,
+      slug,
+      price,
+      compareAtPrice,
+      mainImage,
+      gallery,
+      "galleryUrls": gallery[].asset->url,
+      featured,
+      newArrival,
+      bestseller,
+      variants[]{
+        _key,
+        size,
+        color->{
+          _id,
+          name,
+          hexCode,
+          slug
+        },
+        sku,
+        stock,
+        priceAdjustment
       }
     }
-  `;
+  }`
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
-      },
-      body: JSON.stringify({
-        query,
-        variables: { handle },
-      }),
-    });
+  console.log('🔍 [SANITY] Executing query with handle:', handle)
+  const collection = await client.fetch(query, { handle })
+  console.log('✅ [SANITY] fetchCollectionByHandle result:', collection ? {
+    id: collection._id,
+    title: collection.title,
+    productsCount: collection.products?.length || 0
+  } : 'NOT FOUND')
+  if (!collection) return null
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error fetching collection data:', response.status, errorData);
-      return null;
-    }
-
-    const data = await response.json();
-
-    if (data.errors) {
-      console.error('GraphQL errors:', data.errors);
-      return null;
-    }
-
-    const collection = data?.data?.collectionByHandle;
-    if (!collection) return null;
-
-    const products = collection.products.edges.map(({ node }) => {
-      const discountedPrice = parseFloat(node.priceRange.minVariantPrice.amount);
-      const originalPriceRaw = node.variants.edges[0]?.node.compareAtPrice?.amount || node.compareAtPriceRange.minVariantPrice?.amount;
-      const originalPrice = parseFloat(originalPriceRaw) || 0;
-
-      const discountPercentage = originalPrice
-        ? Math.round(((originalPrice - discountedPrice) / originalPrice) * 100)
-        : 0;
-
-      const images = node.images.edges.map((edge) => edge.node.src);
-      const frontImage = images[0] || 'https://picsum.photos/200';
-      const backImage = images[1] || frontImage;
-
-      return {
-        id: node.id,
-        handle: node.handle,
-        title: node.title,
-        description: node.descriptionHtml,
-        price: discountedPrice.toFixed(2),
-        originalPrice: originalPrice ? originalPrice.toFixed(2) : null,
-        discountPercentage,
-        frontImage,
-        backImage,
-      };
-    });
-
-    return {
-      collection: {
-        id: collection.id,
-        title: collection.title,
-        handle: collection.handle,
-      },
-      products,
-    };
-  } catch (error) {
-    console.error('Error fetching collection:', error);
-    return null;
+  return {
+    collection: {
+      id: collection._id,
+      title: collection.title,
+      handle: collection.slug?.current || collection.slug,
+    },
+    products: (collection.products || []).map(mapProduct),
   }
 }
 
 export async function fetchProductsByCategory(categoryHandle) {
-  const endpoint = `${process.env.SHOPIFY_STORE_URL}/api/2023-01/graphql.json`;
-
-  const query = `
-    query getProductsByCategory($handle: String!) {
-      collectionByHandle(handle: $handle) {
-        id
-        title
-        handle
-        products(first: 100) {
-          edges {
-            node {
-              id
-              title
-              handle
-              descriptionHtml
-              priceRange {
-                minVariantPrice {
-                  amount
-                  currencyCode
-                }
-              }
-              compareAtPriceRange {
-                minVariantPrice {
-                  amount
-                  currencyCode
-                }
-              }
-              images(first: 2) {
-                edges {
-                  node {
-                    src
-                  }
-                }
-              }
-              variants(first: 1) {
-                edges {
-                  node {
-                    compareAtPrice {
-                      amount
-                      currencyCode
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+  console.log('🏷️  [SANITY] fetchProductsByCategory called with:', categoryHandle)
+  const query = `*[_type == "category" && slug.current == $handle][0]{
+    _id,
+    title,
+    slug,
+    "products": *[_type == "product" && references(^._id)]{
+      _id,
+      title,
+      slug,
+      price,
+      compareAtPrice,
+      mainImage,
+      gallery,
+      "galleryUrls": gallery[].asset->url,
+      featured,
+      newArrival,
+      bestseller,
+      variants[]{
+        _key,
+        size,
+        color->{
+          _id,
+          name,
+          hexCode,
+          slug
+        },
+        sku,
+        stock,
+        priceAdjustment
       }
     }
-  `;
+  }`
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Storefront-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
-      },
-      body: JSON.stringify({
-        query,
-        variables: { handle: categoryHandle },
-      }),
-    });
+  console.log('🔍 [SANITY] Executing query with handle:', categoryHandle)
+  const category = await client.fetch(query, { handle: categoryHandle })
+  console.log('✅ [SANITY] fetchProductsByCategory result:', category ? {
+    id: category._id,
+    title: category.title,
+    productsCount: category.products?.length || 0
+  } : 'NOT FOUND')
+  if (!category) return null
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error fetching category:', response.status, errorData);
-      return null;
-    }
-
-    const data = await response.json();
-
-    if (data.errors) {
-      console.error('GraphQL errors:', data.errors);
-      return null;
-    }
-
-    const collection = data.data.collectionByHandle;
-    if (!collection) return null;
-
-    const products = collection.products.edges.map(({ node: product }) => {
-      const originalPrice = parseFloat(
-        product.variants.edges[0]?.node.compareAtPrice?.amount ||
-        product.compareAtPriceRange.minVariantPrice.amount ||
-        0
-      );
-
-      const discountedPrice = parseFloat(product.priceRange.minVariantPrice.amount);
-      const discountPercentage = originalPrice
-        ? Math.round(((originalPrice - discountedPrice) / originalPrice) * 100)
-        : 0;
-
-      const images = product.images.edges.map((edge) => edge.node.src);
-      const frontImage = images[0] || 'https://picsum.photos/200/200';
-      const backImage = images[1] || frontImage;
-
-      return {
-        id: product.id,
-        handle: product.handle,
-        title: product.title,
-        description: product.descriptionHtml,
-        price: `${discountedPrice}`,
-        originalPrice: originalPrice > 0 ? `${originalPrice}` : null,
-        discountPercentage,
-        frontImage,
-        backImage,
-      };
-    });
-
-    return {
-      collection: {
-        id: collection.id,
-        title: collection.title,
-        handle: collection.handle,
-      },
-      products,
-    };
-  } catch (error) {
-    console.error('Error fetching products by category:', error);
-    return null;
+  return {
+    collection: {
+      id: category._id,
+      title: category.title,
+      handle: category.slug?.current || category.slug,
+    },
+    products: (category.products || []).map(mapProduct),
   }
 }

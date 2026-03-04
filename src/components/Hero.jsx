@@ -103,20 +103,23 @@ export default function Hero() {
       </motion.div>
 
       {/* Content - Moved to bottom */}
-      <div className="relative z-10 px-4 sm:px-6 md:px-12 text-white">
+      <div className="relative z-10 px-4 sm:px-6 md:px-12 text-white max-w-4xl mx-auto">
         {/* Animated Heading */}
         <motion.h1
-          className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight mb-6 text-element"
+          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 uppercase tracking-[0.08em]"
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 0.5 }}
         >
-          Drawing Out Your Mystique
+          Drawing Out Your{" "}
+          <span className="bg-gradient-to-r from-zinc-200 via-white to-zinc-300 bg-clip-text text-transparent">
+            Mystique
+          </span>
         </motion.h1>
 
         {/* Animated Subheading */}
         <motion.p
-          className="text-lg sm:text-xl mb-8 text-gray-300 leading-relaxed max-w-2xl mx-auto text-element"
+          className="text-base sm:text-lg md:text-xl mb-10 text-zinc-300 leading-relaxed max-w-2xl mx-auto"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 1 }}
@@ -124,14 +127,14 @@ export default function Hero() {
           Explore unique and edgy designs that redefine style and comfort.
         </motion.p>
         <motion.div
-          className="mt-6"
+          className="mt-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1.2 }}
         >
           <a
             href="/shop"
-            className="inline-block px-8 py-4 bg-white text-black font-bold rounded-md text-lg hover:bg-gray-300"
+            className="inline-block px-10 py-4 bg-white text-black font-bold rounded-xl text-base uppercase tracking-wider hover:bg-zinc-200 transition-all shadow-lg hover:shadow-xl"
           >
             Shop Now
           </a>

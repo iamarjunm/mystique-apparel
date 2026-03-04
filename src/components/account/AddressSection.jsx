@@ -1,60 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
-const AddressSection = ({ user, updateAddress, deleteAddress }) => {
-  const [addresses, setAddresses] = useState([]);
+const AddressSection = ({ userData, updateUserProfile }) => {
+  const [addresses, setAddresses] = useState(userData?.addresses || []);
   const [isEditing, setIsEditing] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [editIndex, setEditIndex] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
-    firstName: user?.firstName || "",
-    lastName: user?.lastName || "",
-    company: "",
-    address1: "",
-    address2: "",
+    name: "",
+    phone: "",
+    street: "",
     city: "",
+    state: "",
+    postalCode: "",
     country: "India",
-    province: "",
-    zip: "",
-    phone: user?.phone || "",
     isPrimary: false,
   });
 
-  // Fetch addresses on component mount
-  useEffect(() => {
-    const fetchAddresses = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("shopifyAccessToken");
-        
-        if (!token) {
-          console.error("No access token found");
-          return;
-        }
-
-        const response = await fetch("/api/user", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) throw new Error("Failed to fetch addresses");
-        
-        const userData = await response.json();
-        if (userData.addresses) {
-          setAddresses(userData.addresses);
-        }
-      } catch (error) {
-        console.error("Address fetch error:", error);
-        setError("Failed to load addresses. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAddresses();
-  }, []);
+  console.log('[ADDRESS] 📍 Component rendered with userData:', userData);
+  console.log('[ADDRESS] 📍 Current addresses:', addresses);
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -67,10 +34,7 @@ const AddressSection = ({ user, updateAddress, deleteAddress }) => {
 
   // Validate form data
   const validateForm = () => {
-    const requiredFields = [
-      'firstName', 'lastName', 'address1', 
-      'city', 'province', 'zip', 'phone'
-    ];
+    const requiredFields = ['name', 'phone', 'street', 'city', 'state', 'postalCode'];
     
     for (const field of requiredFields) {
       if (!formData[field]?.trim()) {
@@ -79,13 +43,13 @@ const AddressSection = ({ user, updateAddress, deleteAddress }) => {
       }
     }
 
-    if (!/^\d{10}$/.test(formData.phone)) {
-      setError("Phone number must be 10 digits");
+    if (!/^\d{6}$/.test(formData.postalCode)) {
+      setError("Postal code must be 6 digits");
       return false;
     }
 
-    if (!/^\d{6}$/.test(formData.zip)) {
-      setError("ZIP code must be 6 digits");
+    if (!/^\d{10}$/.test(formData.phone)) {
+      setError("Phone number must be 10 digits");
       return false;
     }
 
@@ -98,48 +62,46 @@ const AddressSection = ({ user, updateAddress, deleteAddress }) => {
     if (!validateForm()) return;
 
     setLoading(true);
+    console.log('[ADDRESS] 💾 Saving address...');
     
     try {
-      const addressToSave = {
-        ...formData,
-        phone: `+91 ${formData.phone}`,
-        id: editId || `temp-${Date.now()}`,
-      };
-
-      let updatedAddresses;
-      if (editId) {
+      let updatedAddresses = [...addresses];
+      
+      if (editIndex !== null) {
         // Update existing address
-        updatedAddresses = addresses.map(addr => 
-          addr.id === editId ? addressToSave : addr
-        );
+        updatedAddresses[editIndex] = {
+          ...formData,
+          _key: updatedAddresses[editIndex]._key || `address-${Date.now()}`
+        };
+        console.log('[ADDRESS] 📝 Updating existing address at index:', editIndex);
       } else {
-        // Add new address
-        updatedAddresses = [...addresses, addressToSave];
+        // Add new address with unique _key
+        updatedAddresses.push({
+          ...formData,
+          _key: `address-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        });
+        console.log('[ADDRESS] ➕ Adding new address');
       }
 
       // Handle primary address logic
-      if (addressToSave.isPrimary) {
-        updatedAddresses = updatedAddresses.map(addr => ({
+      if (formData.isPrimary) {
+        updatedAddresses = updatedAddresses.map((addr, idx) => ({
           ...addr,
-          isPrimary: addr.id === addressToSave.id
+          isPrimary: editIndex !== null ? idx === editIndex : idx === updatedAddresses.length - 1
         }));
       } else if (updatedAddresses.length === 1) {
         // If this is the only address, make it primary
         updatedAddresses[0].isPrimary = true;
-        addressToSave.isPrimary = true;
       }
 
-      setAddresses(updatedAddresses);
+      // Update in Sanity
+      await updateUserProfile({ addresses: updatedAddresses });
+      console.log('[ADDRESS] ✅ Addresses updated in Sanity');
       
-      // Call update API
-      if (updateAddress) {
-        await updateAddress(addressToSave);
-      }
-
-      // Reset form
+      setAddresses(updatedAddresses);
       resetForm();
     } catch (error) {
-      console.error("Address save error:", error);
+      console.error("[ADDRESS] ❌ Save error:", error);
       setError("Failed to save address. Please try again.");
     } finally {
       setLoading(false);
@@ -147,310 +109,287 @@ const AddressSection = ({ user, updateAddress, deleteAddress }) => {
   };
 
   // Delete address handler
-  const handleDeleteAddress = async (addressId) => {
+  const handleDeleteAddress = async (index) => {
     const confirmDelete = window.confirm("Are you sure you want to delete this address?");
     if (!confirmDelete) return;
 
+    setLoading(true);
+    console.log('[ADDRESS] 🗑️ Deleting address at index:', index);
+
     try {
-      await deleteAddress(addressId);
-      
-      // Remove from local state
-      const updatedAddresses = addresses.filter(addr => addr.id !== addressId);
-      setAddresses(updatedAddresses);
+      let updatedAddresses = addresses.filter((_, idx) => idx !== index);
 
       // If we deleted the primary address and there are others left, make the first one primary
-      if (updatedAddresses.length > 0 && 
-          !updatedAddresses.some(addr => addr.isPrimary)) {
-        const newAddresses = [...updatedAddresses];
-        newAddresses[0].isPrimary = true;
-        setAddresses(newAddresses);
-        
-        // Update in backend
-        if (updateAddress) {
-          await updateAddress(newAddresses[0]);
-        }
+      if (updatedAddresses.length > 0 && !updatedAddresses.some(addr => addr.isPrimary)) {
+        updatedAddresses[0].isPrimary = true;
       }
+
+      await updateUserProfile({ addresses: updatedAddresses });
+      console.log('[ADDRESS] ✅ Address deleted from Sanity');
+      
+      setAddresses(updatedAddresses);
     } catch (error) {
-      console.error("Address delete error:", error);
+      console.error("[ADDRESS] ❌ Delete error:", error);
       setError("Failed to delete address. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   // Edit existing address
-  const handleEditAddress = (address) => {
-    setEditId(address.id);
+  const handleEditAddress = (address, index) => {
+    setEditIndex(index);
     setFormData({
-      ...address,
-      phone: address.phone.replace(/^\+91\s/, "") // Remove country code
+      name: address.name || "",
+      phone: address.phone || "",
+      street: address.street || "",
+      city: address.city || "",
+      state: address.state || "",
+      postalCode: address.postalCode || "",
+      country: address.country || "India",
+      isPrimary: !!address.isPrimary,
+      _key: address._key,
     });
     setIsEditing(true);
+    console.log('[ADDRESS] ✏️ Editing address at index:', index);
   };
 
   // Add new address
   const handleAddNewAddress = () => {
-    setEditId(null);
-    setFormData({
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      company: "",
-      address1: "",
-      address2: "",
-      city: "",
-      country: "India",
-      province: "",
-      zip: "",
-      phone: user?.phone || "",
-      isPrimary: false,
-    });
+    resetForm();
     setIsEditing(true);
+    console.log('[ADDRESS] ➕ Adding new address');
   };
 
   // Reset form
   const resetForm = () => {
-    setIsEditing(false);
-    setEditId(null);
     setFormData({
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      company: "",
-      address1: "",
-      address2: "",
+      name: "",
+      phone: "",
+      street: "",
       city: "",
+      state: "",
+      postalCode: "",
       country: "India",
-      province: "",
-      zip: "",
-      phone: user?.phone || "",
       isPrimary: false,
     });
+    setIsEditing(false);
+    setEditIndex(null);
+    setError("");
   };
 
   return (
-    <div className="mb-8">
-      <h2 className="text-2xl font-semibold mb-4">Address Management</h2>
-      <div className="bg-gray-900 p-6 rounded-lg">
-        {loading && <p className="text-green-500">Loading...</p>}
-        {error && <p className="text-red-500">{error}</p>}
-
-        {!isEditing && (
-          <>
-            {addresses.length > 0 ? (
-              <div className="space-y-4">
-                {[...addresses].sort((a, b) => b.isPrimary - a.isPrimary).map((address) => (
-                  <div
-                    key={address.id}
-                    className={`p-4 border rounded ${
-                      address.isPrimary 
-                        ? "border-green-500 bg-gray-800" 
-                        : "border-gray-700"
-                    }`}
-                  >
-                    <div className="flex justify-between">
-                      <div>
-                        <p className="font-medium">
-                          {address.firstName} {address.lastName}
-                          {address.isPrimary && (
-                            <span className="text-green-400 ml-2">(Primary)</span>
-                          )}
-                        </p>
-                        <p className="text-sm text-gray-400">
-                          {address.address1}, {address.address2 && `${address.address2}, `}
-                          {address.city}, {address.province}, {address.zip}
-                        </p>
-                        <p className="text-sm text-gray-400">Phone: {address.phone}</p>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => handleEditAddress(address)}
-                          className="px-3 py-1 text-sm bg-gray-700 text-white rounded hover:bg-gray-600 transition"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteAddress(address.id)}
-                          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400">No addresses found.</p>
-            )}
-
-            <div className="mt-4 text-center">
-              <button
-                onClick={handleAddNewAddress}
-                className="bg-white text-black px-4 py-2 rounded hover:bg-gray-200 transition"
-              >
-                Add New Address
-              </button>
-            </div>
-          </>
+    <div className="space-y-6">
+      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-8 sm:p-10">
+        <div className="flex items-center justify-between mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold text-zinc-100 uppercase tracking-[0.15em]">
+            Addresses
+          </h2>
+          {!isEditing && (
+            <button
+              onClick={handleAddNewAddress}
+              className="px-6 py-3 bg-white text-black text-sm font-bold rounded-xl hover:bg-zinc-200 transition-all uppercase tracking-wider"
+            >
+              Add New
+            </button>
+          )}
+        </div>
+      
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-5 rounded-xl mb-8">
+            {error}
+          </div>
         )}
 
         {isEditing && (
-          <div className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* First Name */}
-              <div>
-                <label className="block text-gray-400 mb-1">First Name *</label>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full p-2 rounded bg-gray-800 text-white"
-                  required
-                />
-              </div>
-
-              {/* Last Name */}
-              <div>
-                <label className="block text-gray-400 mb-1">Last Name *</label>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full p-2 rounded bg-gray-800 text-white"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Company */}
-            <div>
-              <label className="block text-gray-400 mb-1">Company (Optional)</label>
-              <input
-                type="text"
-                name="company"
-                value={formData.company}
-                onChange={handleInputChange}
-                className="w-full p-2 rounded bg-gray-800 text-white"
-              />
-            </div>
-
-            {/* Address Line 1 */}
-            <div>
-              <label className="block text-gray-400 mb-1">Address *</label>
-              <input
-                type="text"
-                name="address1"
-                value={formData.address1}
-                onChange={handleInputChange}
-                className="w-full p-2 rounded bg-gray-800 text-white"
-                required
-              />
-            </div>
-
-            {/* Address Line 2 */}
-            <div>
-              <label className="block text-gray-400 mb-1">Apartment, Suite, etc. (Optional)</label>
-              <input
-                type="text"
-                name="address2"
-                value={formData.address2}
-                onChange={handleInputChange}
-                className="w-full p-2 rounded bg-gray-800 text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* City */}
-              <div>
-                <label className="block text-gray-400 mb-1">City *</label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleInputChange}
-                  className="w-full p-2 rounded bg-gray-800 text-white"
-                  required
-                />
-              </div>
-
-              {/* State */}
-              <div>
-                <label className="block text-gray-400 mb-1">State *</label>
-                <input
-                  type="text"
-                  name="province"
-                  value={formData.province}
-                  onChange={handleInputChange}
-                  className="w-full p-2 rounded bg-gray-800 text-white"
-                  required
-                />
-              </div>
-
-              {/* ZIP Code */}
-              <div>
-                <label className="block text-gray-400 mb-1">ZIP Code *</label>
-                <input
-                  type="text"
-                  name="zip"
-                  value={formData.zip}
-                  onChange={handleInputChange}
-                  className="w-full p-2 rounded bg-gray-800 text-white"
-                  required
-                  maxLength={6}
-                />
-              </div>
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-gray-400 mb-1">Phone *</label>
-              <div className="flex">
-                <div className="w-1/4">
+          <div className="border-t border-white/10 pt-8">
+            <h3 className="text-xl font-bold text-zinc-100 mb-8 uppercase tracking-wider">
+              {editIndex !== null ? 'Edit Address' : 'New Address'}
+            </h3>
+          
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-[0.2em]">
+                    Name
+                  </label>
                   <input
                     type="text"
-                    value="+91"
-                    readOnly
-                    className="w-full p-2 rounded-l bg-gray-700 text-white"
+                    name="name"
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/20 transition-all text-lg"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Full name"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-[0.2em]">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/20 transition-all text-lg"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder="10-digit number"
+                    maxLength={10}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-[0.2em]">
+                  Street
+                </label>
                 <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
+                  type="text"
+                  name="street"
+                  className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/20 transition-all text-lg"
+                  value={formData.street}
                   onChange={handleInputChange}
-                  className="w-3/4 p-2 rounded-r bg-gray-800 text-white"
-                  required
-                  maxLength={10}
+                  placeholder="123 Main Street"
                 />
               </div>
-            </div>
 
-            {/* Country */}
-            <div>
-              <label className="block text-gray-400 mb-1">Country *</label>
-              <input
-                type="text"
-                name="country"
-                value="India"
-                readOnly
-                className="w-full p-2 rounded bg-gray-700 text-white"
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-[0.2em]">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    name="city"
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/20 transition-all text-lg"
+                    value={formData.city}
+                    onChange={handleInputChange}
+                    placeholder="Mumbai"
+                  />
+                </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <button
-                onClick={resetForm}
-                className="px-4 py-2 border border-gray-600 text-white rounded hover:bg-gray-800 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveAddress}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
-                disabled={loading}
-              >
-                {loading ? "Saving..." : "Save Address"}
-              </button>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-[0.2em]">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    name="state"
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/20 transition-all text-lg"
+                    value={formData.state}
+                    onChange={handleInputChange}
+                    placeholder="Maharashtra"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-[0.2em]">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    name="postalCode"
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/20 transition-all text-lg"
+                    value={formData.postalCode}
+                    onChange={handleInputChange}
+                    placeholder="400001"
+                    maxLength={6}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-400 mb-3 uppercase tracking-[0.2em]">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    name="country"
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 text-zinc-400 cursor-not-allowed text-lg"
+                    value={formData.country}
+                    onChange={handleInputChange}
+                    readOnly
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 py-2">
+                <input
+                  type="checkbox"
+                  name="isPrimary"
+                  id="isPrimary"
+                  checked={formData.isPrimary}
+                  onChange={handleInputChange}
+                  className="w-5 h-5 rounded border-white/20 bg-white/5 text-white focus:ring-white/20"
+                />
+                <label htmlFor="isPrimary" className="text-sm text-zinc-300 font-semibold uppercase tracking-wider">
+                  Set as primary
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleSaveAddress}
+                  className="px-8 py-4 bg-white text-black font-bold rounded-xl hover:bg-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider text-sm"
+                  disabled={loading}
+                >
+                  {loading ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={resetForm}
+                  className="px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 transition-all uppercase tracking-wider text-sm"
+                  disabled={loading}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
+          </div>
+        )}
+
+        {!isEditing && addresses.length === 0 && (
+          <div className="text-center py-16 text-zinc-400">
+            <p className="text-lg mb-2">No addresses saved.</p>
+            <p className="text-sm">Add your first delivery address.</p>
+          </div>
+        )}
+
+        {!isEditing && addresses.length > 0 && (
+          <div className="grid grid-cols-1 gap-6 pt-8 border-t border-white/10">
+            {addresses.map((address, index) => (
+              <div
+                key={index}
+                className="relative p-8 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+              >
+                {address.isPrimary && (
+                  <span className="absolute top-6 right-6 bg-green-500/20 border border-green-500/30 text-green-300 text-xs px-4 py-2 rounded-full font-bold uppercase tracking-wider">
+                    Primary
+                  </span>
+                )}
+                <div className="space-y-3 pr-24">
+                  <p className="font-bold text-zinc-100 text-xl mb-3">{address.name || 'N/A'}</p>
+                  <p className="text-zinc-300 font-medium">📞 {address.phone || 'N/A'}</p>
+                  <p className="text-zinc-200 text-lg leading-relaxed">{address.street}</p>
+                  <p className="text-zinc-300">{address.city}, {address.state} {address.postalCode}</p>
+                  <p className="text-zinc-400">{address.country}</p>
+                </div>
+                <div className="mt-8 flex gap-3">
+                  <button
+                    onClick={() => handleEditAddress(address, index)}
+                    className="px-6 py-3 bg-white/5 border border-white/10 text-white text-xs font-bold rounded-xl hover:bg-white/10 transition-all uppercase tracking-wider"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAddress(index)}
+                    className="px-6 py-3 bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-bold rounded-xl hover:bg-red-500/20 transition-all uppercase tracking-wider"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
