@@ -1,27 +1,69 @@
 import { createClient } from '@sanity/client'
 import { createImageUrlBuilder } from '@sanity/image-url'
 
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
+const apiVersion = process.env.NEXT_PUBLIC_SANITY_API_VERSION || '2025-02-27'
+const token = process.env.NEXT_PUBLIC_SANITY_TOKEN
+
+const hasValidConfig = Boolean(projectId && dataset)
+
 console.log('🔧 [SANITY] Initializing Sanity client...')
 console.log('🔧 [SANITY] Config:', {
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
-  apiVersion: process.env.NEXT_PUBLIC_SANITY_API_VERSION || '2025-02-27',
-  hasToken: !!process.env.NEXT_PUBLIC_SANITY_TOKEN,
-  tokenLength: process.env.NEXT_PUBLIC_SANITY_TOKEN?.length,
+  projectId,
+  dataset,
+  apiVersion,
+  hasToken: !!token,
+  tokenLength: token?.length,
+  hasValidConfig,
 })
 
-export const client = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET,
-  apiVersion: process.env.NEXT_PUBLIC_SANITY_API_VERSION || '2025-02-27',
-  token: process.env.NEXT_PUBLIC_SANITY_TOKEN,
-  useCdn: false,
-})
+function createMissingConfigError() {
+  return new Error(
+    'Sanity client is not configured. Missing NEXT_PUBLIC_SANITY_PROJECT_ID and/or NEXT_PUBLIC_SANITY_DATASET.'
+  )
+}
 
-console.log('✅ [SANITY] Client initialized successfully')
+const internalClient = hasValidConfig
+  ? createClient({
+      projectId,
+      dataset,
+      apiVersion,
+      token,
+      useCdn: false,
+    })
+  : null
 
-const builder = createImageUrlBuilder(client)
-export const urlFor = (source) => builder.image(source)
+if (internalClient) {
+  console.log('✅ [SANITY] Client initialized successfully')
+} else {
+  console.warn('⚠️ [SANITY] Client not initialized: missing environment variables')
+}
+
+export const client = {
+  fetch: (...args) => {
+    if (!internalClient) throw createMissingConfigError()
+    return internalClient.fetch(...args)
+  },
+  create: (...args) => {
+    if (!internalClient) throw createMissingConfigError()
+    return internalClient.create(...args)
+  },
+  patch: (...args) => {
+    if (!internalClient) throw createMissingConfigError()
+    return internalClient.patch(...args)
+  },
+  delete: (...args) => {
+    if (!internalClient) throw createMissingConfigError()
+    return internalClient.delete(...args)
+  },
+}
+
+const builder = internalClient ? createImageUrlBuilder(internalClient) : null
+export const urlFor = (source) => {
+  if (!builder) return null
+  return builder.image(source)
+}
 
 export async function syncUserProfile(userData) {
   console.log('👤 [SANITY] syncUserProfile called with:', {
