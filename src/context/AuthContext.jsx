@@ -11,8 +11,14 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from 'firebase/auth'
-import { auth } from '../../firebase'
 import { client, syncUserProfile } from '../../sanity'
+
+// Lazy load Firebase auth - only on client side
+let auth = null
+if (typeof window !== 'undefined') {
+  const { auth: firebaseAuth } = require('../../firebase')
+  auth = firebaseAuth
+}
 
 const AuthContext = createContext()
 
@@ -61,6 +67,12 @@ export function AuthProvider({ children }) {
 
   // Listen to auth state changes
   useEffect(() => {
+    // Skip during server-side rendering
+    if (!auth) {
+      setLoading(false)
+      return
+    }
+
     console.log('[AUTH] Setting up auth state listener...')
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('[AUTH] Auth state changed:', firebaseUser ? firebaseUser.email : 'no user')
@@ -85,6 +97,9 @@ export function AuthProvider({ children }) {
   // Sign in with email and password
   const signIn = async (email, password) => {
     console.log('[AUTH] Starting email sign-in for:', email)
+    if (!auth) {
+      throw new Error('Firebase auth not initialized. Please refresh the page.')
+    }
     try {
       console.log('[AUTH] Calling Firebase signInWithEmailAndPassword...')
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
@@ -126,6 +141,9 @@ export function AuthProvider({ children }) {
   // Sign up with email and password
   const signUp = async (email, password, displayName) => {
     console.log('[AUTH] Starting email sign-up for:', email)
+    if (!auth) {
+      throw new Error('Firebase auth not initialized. Please refresh the page.')
+    }
     try {
       console.log('[AUTH] Creating Firebase user account...')
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
@@ -163,6 +181,9 @@ export function AuthProvider({ children }) {
   // Google Sign-In
   const signInWithGoogle = async () => {
     console.log('[AUTH] Starting Google Sign-In...')
+    if (!auth) {
+      throw new Error('Firebase auth not initialized. Please refresh the page.')
+    }
     try {
       console.log('[AUTH] Creating Google provider')
       const googleProvider = new GoogleAuthProvider()
@@ -215,6 +236,10 @@ export function AuthProvider({ children }) {
   // Sign out
   const signOut = async () => {
     console.log('[AUTH] Starting sign-out...')
+    if (!auth) {
+      setUserData(null)
+      return
+    }
     try {
       console.log('[AUTH] Calling Firebase signOut...')
       await firebaseSignOut(auth)
@@ -230,6 +255,9 @@ export function AuthProvider({ children }) {
   // Reset password
   const resetPassword = async (email) => {
     console.log('[AUTH] Resetting password for:', email)
+    if (!auth) {
+      throw new Error('Firebase auth not initialized. Please refresh the page.')
+    }
     try {
       console.log('[AUTH] Sending password reset email...')
       await sendPasswordResetEmail(auth, email)
@@ -243,6 +271,7 @@ export function AuthProvider({ children }) {
   // Update user profile
   const updateUserProfile = async (data) => {
     if (!user) throw new Error('No user logged in')
+    if (!auth) throw new Error('Firebase auth not initialized')
 
     console.log('[AUTH] Updating user profile in Sanity...')
     try {

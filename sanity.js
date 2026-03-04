@@ -8,15 +8,18 @@ const token = process.env.NEXT_PUBLIC_SANITY_TOKEN
 
 const hasValidConfig = Boolean(projectId && dataset)
 
-console.log('🔧 [SANITY] Initializing Sanity client...')
-console.log('🔧 [SANITY] Config:', {
-  projectId,
-  dataset,
-  apiVersion,
-  hasToken: !!token,
-  tokenLength: token?.length,
-  hasValidConfig,
-})
+// Only log in browser environment, not during build
+if (typeof window !== 'undefined') {
+  console.log('🔧 [SANITY] Initializing Sanity client...')
+  console.log('🔧 [SANITY] Config:', {
+    projectId,
+    dataset,
+    apiVersion,
+    hasToken: !!token,
+    tokenLength: token?.length,
+    hasValidConfig,
+  })
+}
 
 function createMissingConfigError() {
   return new Error(
@@ -34,9 +37,9 @@ const internalClient = hasValidConfig
     })
   : null
 
-if (internalClient) {
+if (typeof window !== 'undefined' && internalClient) {
   console.log('✅ [SANITY] Client initialized successfully')
-} else {
+} else if (typeof window !== 'undefined') {
   console.warn('⚠️ [SANITY] Client not initialized: missing environment variables')
 }
 

@@ -18,13 +18,17 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
-
+// Initialize Firebase only on client-side, not during build time
+let app;
+let auth;
+let db;
 let analytics = null;
+
 if (typeof window !== 'undefined') {
+  // Client-side only initialization
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
   analytics = getAnalytics(app);
 }
 
