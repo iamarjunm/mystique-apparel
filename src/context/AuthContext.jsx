@@ -67,38 +67,44 @@ export function AuthProvider({ children }) {
 
   // Listen to auth state changes
   useEffect(() => {
-    // Skip during server-side rendering
+    // Skip if Firebase auth is not available
     if (!auth) {
+      console.warn('[AUTH] Firebase not initialized - auth is null')
       setLoading(false)
       return
     }
 
     console.log('[AUTH] Setting up auth state listener...')
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('[AUTH] Auth state changed:', firebaseUser ? firebaseUser.email : 'no user')
-      setUser(firebaseUser)
-      
-      if (firebaseUser) {
-        console.log('[AUTH] User logged in, fetching data from Sanity...')
-        const data = await fetchUserData(firebaseUser.uid, firebaseUser.email)
-        setUserData(data)
-        console.log('[AUTH] User data loaded from Sanity')
-      } else {
-        console.log('[AUTH] No user logged in')
-        setUserData(null)
-      }
-      
-      setLoading(false)
-    })
+    try {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        console.log('[AUTH] Auth state changed:', firebaseUser ? firebaseUser.email : 'no user')
+        setUser(firebaseUser)
+        
+        if (firebaseUser) {
+          console.log('[AUTH] User logged in, fetching data from Sanity...')
+          const data = await fetchUserData(firebaseUser.uid, firebaseUser.email)
+          setUserData(data)
+          console.log('[AUTH] User data loaded from Sanity')
+        } else {
+          console.log('[AUTH] No user logged in')
+          setUserData(null)
+        }
+        
+        setLoading(false)
+      })
 
-    return unsubscribe
+      return unsubscribe
+    } catch (error) {
+      console.error('[AUTH] Error setting up auth listener:', error.message)
+      setLoading(false)
+    }
   }, [])
 
   // Sign in with email and password
   const signIn = async (email, password) => {
     console.log('[AUTH] Starting email sign-in for:', email)
     if (!auth) {
-      throw new Error('Firebase auth not initialized. Please refresh the page.')
+      throw new Error('Firebase auth not initialized. Check NEXT_PUBLIC_FIREBASE_* environment variables.')
     }
     try {
       console.log('[AUTH] Calling Firebase signInWithEmailAndPassword...')
@@ -112,20 +118,30 @@ export function AuthProvider({ children }) {
       
       if (!data) {
         console.warn('[AUTH] ⚠️  No Sanity profile found, creating one...')
-        // Create profile if it doesn't exist
-        await syncUserProfile({
-          firebaseUid: user.uid,
-          email: user.email,
-          displayName: user.displayName || email.split('@')[0],
-          authProvider: 'email',
-          phoneNumber: user.phoneNumber || null,
-          addresses: [],
-        })
-        console.log('[AUTH] ✅ Sanity profile created')
-        
-        // Fetch the newly created profile
-        const newData = await fetchUserData(user.uid, user.email)
-        setUserData(newData)
+        try {
+          // Create profile if it doesn't exist
+          await syncUserProfile({
+            firebaseUid: user.uid,
+            email: user.email,
+            displayName: user.displayName || email.split('@')[0],
+            authProvider: 'email',
+            phoneNumber: user.phoneNumber || null,
+            addresses: [],
+          })
+          console.log('[AUTH] ✅ Sanity profile created')
+          
+          // Fetch the newly created profile
+          const newData = await fetchUserData(user.uid, user.email)
+          setUserData(newData)
+        } catch (sanityError) {
+          console.error('[AUTH] ⚠️  Sanity profile creation failed:', sanityError.message)
+          setUserData({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || email.split('@')[0],
+            photoURL: null,
+          })
+        }
       } else {
         setUserData(data)
         console.log('[AUTH] ✅ Sanity profile verified')
