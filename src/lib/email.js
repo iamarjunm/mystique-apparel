@@ -362,5 +362,4 @@ export async function sendOrderStatusEmail(orderData) {
   }
 }
 
-export { sendOrderConfirmationEmail, sendOrderStatusEmail };
 export default resend;
