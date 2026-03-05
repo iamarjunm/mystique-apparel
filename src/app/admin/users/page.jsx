@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { client } from "@/sanity";
 import { motion } from "framer-motion";
-import { Users, Mail, UserCheck, Edit } from "lucide-react";
+import { Users, Mail, UserCheck, Edit, Download } from "lucide-react";
 import Modal from "../components/Modal";
+import { exportAndDownloadUsers } from "@/lib/csvExport";
 
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
@@ -12,6 +13,7 @@ export default function UsersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({ isAdmin: false });
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -72,6 +74,38 @@ export default function UsersPage() {
     }
   };
 
+  const handleExportToBrevo = async () => {
+    if (users.length === 0) {
+      alert("No users to export");
+      return;
+    }
+
+    try {
+      setExporting(true);
+      console.log(`[EXPORT] Starting export of ${users.length} users to CSV`);
+
+      // Format users for export
+      const formattedUsers = users.map((user) => ({
+        email: user.email,
+        displayName: user.displayName,
+        phoneNumber: user.phone,
+        createdAt: user.createdAt,
+      }));
+
+      exportAndDownloadUsers(
+        formattedUsers,
+        `mystique-users-${new Date().toISOString().split("T")[0]}.csv`
+      );
+
+      alert(`✅ Successfully exported ${users.length} users!`);
+    } catch (err) {
+      console.error("[EXPORT] Error during export:", err);
+      alert("Failed to export users. Check console for details.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -100,6 +134,18 @@ export default function UsersPage() {
             {users.filter((u) => u.isAdmin).length}
           </p>
         </div>
+      </div>
+
+      {/* Export Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleExportToBrevo}
+          disabled={loading || exporting || users.length === 0}
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          <Download className="w-4 h-4" />
+          {exporting ? "Exporting..." : `📥 Export to Brevo (${users.length})`}
+        </button>
       </div>
 
       {/* Users Table */}

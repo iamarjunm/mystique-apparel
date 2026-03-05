@@ -1,4 +1,5 @@
 import { client } from "@/sanity";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 
 // Generate shorter order ID (e.g., ORD-A1B2C3D4)
 function generateShortOrderId() {
@@ -50,9 +51,16 @@ export async function POST(req) {
 
     // Map cart items to Sanity order items with product references
     const orderItems = cart.map((item) => {
+      console.log("📦 [ITEM MAPPING] Processing item:", {
+        title: item.title,
+        productId: item.productId,
+        id: item.id,
+        variantId: item.variantId,
+      });
+
       const orderItem = {
         _type: "object",
-        _key: `item-${item.variantId}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        _key: `item-${item.variantId || item.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         productTitle: item.title || "",
         variantSize: item.size || "",
         variantColor: item.color || "",
@@ -60,16 +68,23 @@ export async function POST(req) {
         price: Number(item.price) || 0,
       };
 
-      // Use productId (actual Sanity document ID) instead of variantId
-      const productDocId = item.productId || item.id;
+      // Use productId (actual Sanity document ID) - try multiple sources
+      const productDocId = item.productId || item.id || item.sanityId;
+      
+      console.log("📦 [ITEM MAPPING] Product ID candidates:", {
+        productDocId,
+        isValidId: productDocId && /^[a-zA-Z0-9_-]+$/.test(productDocId),
+      });
       
       // Add product reference using the actual product document ID
       if (productDocId && /^[a-zA-Z0-9_-]+$/.test(productDocId)) {
         orderItem.product = {
           _type: "reference",
           _ref: productDocId,
-          _weak: true, // Weak reference allows missing products
         };
+        console.log("✅ [ITEM MAPPING] Product reference added:", productDocId);
+      } else {
+        console.warn("⚠️ [ITEM MAPPING] No valid product reference found for item:", item.title);
       }
 
       return orderItem;
@@ -160,6 +175,8 @@ export async function POST(req) {
       subtotal: Number(subtotal),
       shippingCost: Number(shippingCost),
       tax: 0,
+      discountCode: discount?.code || null,
+      discountAmount: discountAmount || 0,
       total: Number(finalTotal),
       paymentMethod: paymentMethod === "cod" ? "cod" : "razorpay",
       paymentId: razorpayPaymentId || razorpayOrderId || null,
@@ -192,6 +209,13 @@ export async function POST(req) {
 
     // Create the order in Sanity
     const createdOrder = await client.create(orderDoc);
+    
+    console.log("✅ [CREATE ORDER] Order created successfully:", {
+      orderId: createdOrder._id,
+      orderNumber: createdOrder.orderNumber,
+      itemsCount: createdOrder.items?.length || 0,
+      firstItem: createdOrder.items?.[0],
+    });
 
     console.log("✅ [CREATE ORDER] Success:", {
       orderId: createdOrder._id,
@@ -201,6 +225,52 @@ export async function POST(req) {
       total: createdOrder.total,
       shippingCost: createdOrder.shippingCost,
     });
+
+    // Send order confirmation email via Resend
+    console.log("📧 [EMAIL] Sending order confirmation to:", createdOrder.customerEmail);
+    console.log("📧 [EMAIL] Order items for email:", JSON.stringify(orderItems, null, 2));
+    try {
+      const emailResult = await sendOrderConfirmationEmail({
+        email: createdOrder.customerEmail,
+        orderId: createdOrder.orderNumber,
+        customerName: createdOrder.customerName || createdOrder.customerEmail.split('@')[0],
+        customerPhone: createdOrder.customerPhone || '',
+        shippingAddress: createdOrder.shippingAddress || null,
+        items: orderItems.map((item) => {
+          console.log("📧 [EMAIL] Mapping item:", {
+            productTitle: item.productTitle,
+            variantSize: item.variantSize,
+            variantColor: item.variantColor
+          });
+          return {
+            productName: item.productTitle,
+            productTitle: item.productTitle,
+            size: item.variantSize,
+            color: item.variantColor,
+            variantSize: item.variantSize,
+            variantColor: item.variantColor,
+            quantity: item.quantity,
+            price: item.price,
+          };
+        }),
+        subtotal: createdOrder.subtotal,
+        shippingCost: createdOrder.shippingCost || 0,
+        tax: createdOrder.tax || 0,
+        discountCode: createdOrder.discountCode || null,
+        discountAmount: createdOrder.discountAmount || 0,
+        totalAmount: createdOrder.total,
+        status: 'confirmed',
+      });
+
+      if (emailResult) {
+        console.log("✅ [EMAIL] Order confirmation sent successfully");
+      } else {
+        console.warn("⚠️ [EMAIL] Failed to send order confirmation (Resend returned null)");
+      }
+    } catch (emailError) {
+      console.error("❌ [EMAIL] Exception sending order confirmation:", emailError.message);
+      // Continue with order creation even if email fails
+    }
 
     return new Response(
       JSON.stringify({

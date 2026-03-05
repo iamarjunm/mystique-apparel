@@ -35,6 +35,8 @@ export async function GET(request, { params }) {
       subtotal,
       shippingCost,
       tax,
+      discountCode,
+      discountAmount,
       total,
       paymentMethod,
       paymentId,

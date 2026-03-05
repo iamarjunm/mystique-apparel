@@ -349,13 +349,13 @@ const ShippingAddressForm = ({ user, updateAddress, onSubmit, initialAddress, in
               <p className="text-gray-400 text-xs sm:text-sm mb-3">Select a saved address or add a new one</p>
               {availableAddresses.map((address) => (
                 <div
+                  key={address.id}
                   className={`p-3 sm:p-4 border-2 rounded-lg transition-all cursor-pointer ${
                     currentSelectedAddress?.id === address.id
                       ? "border-white bg-gray-800"
                       : "border-gray-700 hover:border-gray-600"
                   }`}
                   onClick={() => handleSelectAddress(address)}
-                  key={address.id}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">

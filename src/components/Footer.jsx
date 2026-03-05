@@ -68,11 +68,6 @@ export default function Footer() {
                   Shipping Info
                 </Link>
               </li>
-              <li>
-                <Link href="/refund-policy" className="text-gray-400 hover:text-white transition-colors duration-300">
-                  Returns & Refunds
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -95,11 +90,6 @@ export default function Footer() {
                   Shipping Policy
                 </Link>
               </li>
-              <li>
-                <Link href="/refund-policy" className="text-gray-400 hover:text-white transition-colors duration-300">
-                  Refund Policy
-                </Link>
-              </li>
             </ul>
           </div>
         </div>
@@ -111,6 +101,7 @@ export default function Footer() {
         <div className="text-center text-gray-400 text-xs sm:text-sm space-y-2">
           <p>© {new Date().getFullYear()} Mystique Apparel. All Rights Reserved.</p>
           <p className="text-gray-500">Crafted with precision. Designed for you.</p>
+          <p className="mt-4 text-gray-400">Contact: <a href="mailto:apparelmystique1@gmail.com" className="text-white hover:text-gray-300 transition-colors">apparelmystique1@gmail.com</a></p>
         </div>
       </div>
     </footer>

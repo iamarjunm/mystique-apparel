@@ -20,6 +20,7 @@
     "firebase": "^12.9.0",
     "framer-motion": "^12.5.0",
     "gsap": "^3.12.7",
+    "jspdf": "^4.2.0",
     "lucide-react": "^0.479.0",
     "next": "^15.3.1",
     "nodemailer": "^8.0.1",
@@ -29,6 +30,7 @@
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
     "react-toastify": "^11.0.5",
+    "resend": "^6.9.3",
     "upstash": "^0.0.1",
     "vercel": "^25.2.0"
   },

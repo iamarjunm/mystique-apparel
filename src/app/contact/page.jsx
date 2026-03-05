@@ -96,7 +96,7 @@ export default function ContactPage() {
         
         <div className="mt-12 text-gray-400">
           <p className="text-lg">Our team is available 24/7 to assist you with any queries.</p>
-          <p className="mt-4">Email us at: <a href="mailto:support@mystiqueapparel.com" className="text-white">support@mystiqueapparel.com</a></p>
+          <p className="mt-4">Email us at: <a href="mailto:apparelmystique1@gmail.com" className="text-white hover:text-gray-300">apparelmystique1@gmail.com</a></p>
         </div>
       </motion.div>
       <section className="pt-40">

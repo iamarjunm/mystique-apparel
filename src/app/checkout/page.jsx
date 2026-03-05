@@ -289,6 +289,8 @@ const CheckoutPage = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             cart: cart.map(item => ({
+              id: item.id,
+              productId: item.productId || item.id,
               variantId: item.variantId,
               quantity: item.quantity,
               price: item.price,
@@ -336,6 +338,8 @@ const CheckoutPage = () => {
                   razorpayOrderId: response.razorpay_order_id,
                   razorpaySignature: response.razorpay_signature,
                   cart: cart.map(item => ({
+                    id: item.id,
+                    productId: item.productId || item.id,
                     variantId: item.variantId,
                     quantity: item.quantity,
                     price: item.price,
@@ -402,6 +406,8 @@ const CheckoutPage = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cart: cart.map(item => ({
+            id: item.id,
+            productId: item.productId || item.id,
             variantId: item.variantId,
             quantity: item.quantity,
             price: item.price,
@@ -437,6 +443,8 @@ const CheckoutPage = () => {
               razorpayOrderId,
               razorpaySignature: null,
               cart: cart.map(item => ({
+                id: item.id,
+                productId: item.productId || item.id,
                 variantId: item.variantId,
                 quantity: item.quantity,
                 price: item.price,
@@ -504,6 +512,8 @@ const CheckoutPage = () => {
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
                 cart: cart.map(item => ({
+                  id: item.id,
+                  productId: item.productId || item.id,
                   variantId: item.variantId,
                   quantity: item.quantity,
                   price: item.price,

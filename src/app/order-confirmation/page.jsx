@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle, AlertCircle, Truck, CreditCard, Package } from "lucide-react";
+import { Loader2, CheckCircle, AlertCircle, Truck, CreditCard, Package, Download } from "lucide-react";
 import Link from "next/link";
 
 // Loading component
@@ -44,6 +44,34 @@ const ErrorDisplay = ({ error, onRetry }) => (
 
 // Main order content component
 const OrderContent = ({ orderDetails }) => {
+    const [downloadingPDF, setDownloadingPDF] = useState(false);
+
+    const downloadInvoice = async () => {
+      try {
+        setDownloadingPDF(true);
+        const response = await fetch(`/api/generate-invoice?orderId=${orderDetails.orderNumber}`);
+      
+        if (!response.ok) {
+          throw new Error('Failed to generate invoice');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Invoice-${orderDetails.orderNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Failed to download invoice:', error);
+        alert('Failed to download invoice. Please try again or contact support.');
+      } finally {
+        setDownloadingPDF(false);
+      }
+    };
+
   const formatDate = (dateString) => {
     if (!dateString) return "Date not available";
     try {
@@ -72,6 +100,27 @@ const OrderContent = ({ orderDetails }) => {
           <p className="text-xl text-gray-400">
             Your order #{orderDetails?.orderNumber} has been received
           </p>
+          
+                  {/* Download Invoice Button */}
+                  <div className="mt-6">
+                    <button
+                      onClick={downloadInvoice}
+                      disabled={downloadingPDF}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {downloadingPDF ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Generating Invoice...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-5 w-5" />
+                          Download Invoice
+                        </>
+                      )}
+                    </button>
+                  </div>
         </div>
 
         {/* Order Summary Cards */}
@@ -97,7 +146,34 @@ const OrderContent = ({ orderDetails }) => {
                   {orderDetails?.paymentStatus?.replace(/_/g, ' ').toLowerCase()}
                 </span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-gray-800">
+              
+              {/* Price Breakdown */}
+              <div className="pt-2 border-t border-gray-800 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Subtotal</span>
+                  <span>₹{orderDetails?.subtotal?.toFixed(2)}</span>
+                </div>
+                {orderDetails?.shippingCost > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Shipping</span>
+                    <span>₹{orderDetails?.shippingCost?.toFixed(2)}</span>
+                  </div>
+                )}
+                {!orderDetails?.shippingCost && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Shipping</span>
+                    <span className="text-green-400">FREE</span>
+                  </div>
+                )}
+                {orderDetails?.discountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-400">
+                    <span>Discount{orderDetails?.discountCode ? ` (${orderDetails.discountCode})` : ''}</span>
+                    <span>-₹{orderDetails?.discountAmount?.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-between pt-3 border-t border-gray-700 mt-3">
                 <span className="text-gray-400">Total Amount</span>
                 <span className="font-bold text-lg">₹{orderDetails?.total?.toFixed(2)}</span>
               </div>
