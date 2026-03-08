@@ -15,9 +15,9 @@ export default function Modal({ isOpen, onClose, title, children, size = "md" })
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className={`bg-gradient-to-br from-gray-900/95 to-black border border-white/10 rounded-lg shadow-2xl w-full ${sizeClasses[size]}`}>
+      <div className={`bg-gradient-to-br from-gray-900/95 to-black border border-white/10 rounded-lg shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
           <h2 className="text-xl font-bold text-white">{title}</h2>
           <button
             onClick={onClose}
@@ -28,7 +28,7 @@ export default function Modal({ isOpen, onClose, title, children, size = "md" })
         </div>
 
         {/* Content */}
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto min-h-0">{children}</div>
       </div>
     </div>
   );

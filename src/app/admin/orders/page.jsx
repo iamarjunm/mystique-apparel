@@ -325,7 +325,7 @@ export default function OrdersPage() {
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={selectedOrder ? `Order ${selectedOrder.orderNumber}` : "Order Details"}
-        size="lg"
+        size="2xl"
       >
         {selectedOrder && (
           <div className="space-y-6">
