@@ -1,6 +1,6 @@
 // app/collections/[handle]/page.jsx
 import { fetchCollectionByHandle } from '@/lib/fetchProducts';
-import ProductCard from '@/components/ProductCard';
+import ProductGrid from '@/components/ProductGrid';
 
 export default async function CollectionPage(props) {
   const { handle } = await props.params;
@@ -35,11 +35,7 @@ export default async function CollectionPage(props) {
 
         {/* Products Grid */}
         {products.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <ProductGrid products={products} columns={5} />
         ) : (
           <div className="text-center py-20">
             <p className="text-gray-400 text-xl">No products available in this collection yet.</p>

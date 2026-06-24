@@ -54,14 +54,6 @@ export default function HomePage() {
           }`
         );
         setGameSettings(data);
-
-        if (data?.promotionalGames?.enabled && data.promotionalGames.autoOpenDelay > 0) {
-          const timer = setTimeout(() => {
-            setIsGameOpen(true);
-          }, data.promotionalGames.autoOpenDelay * 1000);
-
-          return () => clearTimeout(timer);
-        }
       } catch (error) {
         console.error('Error fetching game settings:', error);
       }
@@ -73,7 +65,7 @@ export default function HomePage() {
   return (
     <>
       <motion.div
-        className="min-h-screen bg-gradient-to-br from-black via-gray-950 to-black selection:bg-white/30 text-white"
+        className="min-h-screen bg-black selection:bg-white/30 text-white"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

@@ -13,9 +13,20 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
   const { user, loading } = useAuth()
   const router = useRouter()
   const [settings, setSettings] = useState(null)
-  const [userGameData, setUserGameData] = useState({})
-
   const STORAGE_KEY = 'mystique_game_data_v2'
+  const [userGameData, setUserGameData] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (stored) {
+        try { return JSON.parse(stored) } catch { return {} }
+      }
+    }
+    return {}
+  })
+  const [internalIsOpen, setInternalIsOpen] = useState(false)
+  const hasAutoOpened = React.useRef(false)
+  const allowedThisSession = React.useRef(false)
+
 
   const getIdentityKey = () => {
     if (user?.uid) return `user:${user.uid}`
@@ -38,7 +49,8 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
               enabled,
               activeGame,
               offerCycleId,
-              replayInterval
+              replayInterval,
+              autoOpenDelay
             }
           }`
         )
@@ -49,16 +61,6 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
     }
 
     fetchSettings()
-
-    // Load game data from localStorage
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        setUserGameData(JSON.parse(stored))
-      } catch {
-        setUserGameData({})
-      }
-    }
   }, [])
 
   const canPlayGame = () => {
@@ -84,6 +86,23 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
     const hoursSincePlay = (Date.now() - lastPlayed) / (1000 * 60 * 60)
     return hoursSincePlay >= replayInterval
   }
+
+  useEffect(() => {
+    if (loading) return; // Wait for auth to resolve before evaluating auto-open
+    if (!hasAutoOpened.current && settings?.promotionalGames?.enabled && settings.promotionalGames.autoOpenDelay > 0) {
+      if (canPlayGame()) {
+        hasAutoOpened.current = true;
+        const timer = setTimeout(() => {
+          setInternalIsOpen(true);
+        }, settings.promotionalGames.autoOpenDelay * 1000);
+        return () => clearTimeout(timer);
+      } else {
+        if (settings) {
+          hasAutoOpened.current = true;
+        }
+      }
+    }
+  }, [settings, userGameData, loading])
 
   const recordGamePlay = () => {
     const activeGame = settings?.promotionalGames?.activeGame
@@ -113,10 +132,19 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
     if (gameWasPlayed) {
       recordGamePlay()
     }
+    setInternalIsOpen(false)
     onClose()
   }
 
-  if (!isOpen || !settings?.promotionalGames?.enabled || loading) return null
+  const showModal = isOpen || internalIsOpen;
+
+  useEffect(() => {
+    if (!showModal) {
+      allowedThisSession.current = false;
+    }
+  }, [showModal]);
+
+  if (!showModal || !settings?.promotionalGames?.enabled || loading) return null
 
   if (!user) {
     return (
@@ -130,6 +158,7 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
           <div className="flex gap-3">
             <button
               onClick={() => {
+                setInternalIsOpen(false)
                 onClose()
                 router.push('/account/login')
               }}
@@ -138,7 +167,7 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
               Login
             </button>
             <button
-              onClick={onClose}
+              onClick={() => { setInternalIsOpen(false); onClose(); }}
               className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-2.5 sm:py-3 text-sm sm:text-base rounded-lg transition-all duration-300"
             >
               Close
@@ -163,7 +192,12 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
 
   if (!GameComponent) return null
 
-  if (!canPlayGame()) {
+  const actuallyCanPlay = allowedThisSession.current || canPlayGame();
+  if (actuallyCanPlay) {
+    allowedThisSession.current = true;
+  }
+
+  if (!actuallyCanPlay) {
     const replayInterval = Number(settings?.promotionalGames?.replayInterval ?? 24)
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
@@ -175,7 +209,7 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
               : `You can play again in ${Math.ceil(replayInterval)} hours.`}
           </p>
           <button
-            onClick={onClose}
+            onClick={() => { setInternalIsOpen(false); onClose(); }}
             className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-2.5 sm:py-3 text-sm sm:text-base rounded-lg transition-all duration-300"
           >
             Close
@@ -188,7 +222,7 @@ const PromoGameSelector = ({ isOpen, onClose }) => {
   return (
     <GameComponent
       onClose={handleGameClose}
-      allowReplay={Number(settings?.promotionalGames?.replayInterval ?? 24) !== 0}
+      allowReplay={false}
       recordGamePlay={recordGamePlay}
     />
   )

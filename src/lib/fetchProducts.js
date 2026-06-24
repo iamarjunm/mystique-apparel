@@ -222,15 +222,13 @@ export async function fetchCollectionByHandle(handle) {
       bestseller,
       variants[]{
         _key,
-        size,
         color->{
           _id,
           name,
           hexCode,
-          slug
+          "slug": slug.current
         },
-        sku,
-        stock,
+        sizeStock,
         priceAdjustment
       }
     }
@@ -275,15 +273,13 @@ export async function fetchProductsByCategory(categoryHandle) {
       bestseller,
       variants[]{
         _key,
-        size,
         color->{
           _id,
           name,
           hexCode,
-          slug
+          "slug": slug.current
         },
-        sku,
-        stock,
+        sizeStock,
         priceAdjustment
       }
     }
