@@ -9,26 +9,6 @@ export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const getBentoClasses = (index) => {
-    const pattern = index % 6;
-    switch (pattern) {
-      case 0:
-        return "col-span-2 row-span-2";
-      case 1:
-        return "col-span-1 row-span-1";
-      case 2:
-        return "col-span-1 row-span-2";
-      case 3:
-        return "col-span-1 row-span-1";
-      case 4:
-        return "col-span-2 row-span-1";
-      case 5:
-        return "col-span-1 row-span-1";
-      default:
-        return "col-span-1 row-span-1";
-    }
-  };
-
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -40,17 +20,17 @@ export default function Categories() {
           image,
           description
         }`;
-        
+
         const data = await client.fetch(query);
         console.log('[CATEGORIES] ✅ Fetched categories:', data);
-        
+
         const mappedCategories = data.map(cat => ({
           name: cat.title,
           slug: cat.slug?.current || cat.slug,
           image: cat.image?.asset?._ref ? urlFor(cat.image).width(600).height(800).url() : '/tshirt.jpg',
           description: cat.description,
         }));
-        
+
         setCategories(mappedCategories);
       } catch (error) {
         console.error('[CATEGORIES] ❌ Error fetching categories:', error);
@@ -125,7 +105,7 @@ export default function Categories() {
         </motion.div>
 
         {/* Category Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[150px] sm:auto-rows-[200px] md:auto-rows-[250px] gap-3 sm:gap-4 md:gap-6 grid-flow-dense">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
           {categories.map((category, index) => (
             <motion.div
               key={category.slug}
@@ -133,22 +113,22 @@ export default function Categories() {
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut", delay: index * 0.1 }}
               viewport={{ once: true }}
-              className={`group ${getBentoClasses(index)}`}
+              className="group"
             >
-              <Link href={`/categories/${category.slug}`} className="block w-full h-full">
-                <div className="relative w-full h-full overflow-hidden bg-gradient-to-br from-zinc-900 to-black border border-white/15 transition-all duration-500 group-hover:border-white/40 group-hover:shadow-2xl group-hover:shadow-white/10 rounded-2xl">
+              <Link href={`/categories/${category.slug}`}>
+                <div className="relative w-full overflow-hidden bg-gradient-to-br from-zinc-900 to-black border border-white/15 transition-all duration-500 group-hover:border-white/40 group-hover:shadow-2xl group-hover:shadow-white/10 rounded-lg aspect-[3/4] max-h-[200px] sm:max-h-[250px] md:max-h-[320px] lg:max-h-[400px]">
                   {/* Image with Filter */}
                   <img
                     src={category.image}
                     alt={category.name}
-                    className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105 opacity-60 group-hover:opacity-100 grayscale group-hover:grayscale-0 rounded-lg"
+                    className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105 rounded-lg"
                   />
 
                   {/* Dark Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent group-hover:opacity-40 transition-opacity duration-700" />
-                  
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent transition-opacity duration-700" />
+
                   {/* Hover Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/0 group-hover:from-white/10 group-hover:via-white/0 group-hover:to-white/10 transition-all duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/0 group-hover:from-white/5 group-hover:via-white/0 group-hover:to-white/5 transition-all duration-500" />
 
                   {/* Top Accent Line */}
                   <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -160,7 +140,7 @@ export default function Categories() {
                       <h3 className="text-sm sm:text-lg md:text-xl lg:text-2xl font-black uppercase text-white tracking-[0.15em] transition-all duration-500 group-hover:tracking-[0.25em] mb-2 sm:mb-3">
                         {category.name}
                       </h3>
-                      
+
                       {/* Animated Underline */}
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-0 h-px bg-white group-hover:w-6 transition-all duration-500" />
