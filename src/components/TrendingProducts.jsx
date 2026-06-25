@@ -117,7 +117,7 @@ export default function TrendingProducts() {
               </div>
             ) : (
               displayProducts.map((product, idx) => (
-                <div key={`${product.id}-${idx}`} className="w-full sm:w-1/2 lg:w-1/4 shrink-0 px-2 snap-start">
+                <div key={`${product.id}-${idx}`} className="w-[40%] sm:w-1/3 lg:w-1/4 shrink-0 px-2 snap-start">
                   <ProductCard product={product} />
                 </div>
               ))

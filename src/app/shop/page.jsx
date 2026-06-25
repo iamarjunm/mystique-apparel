@@ -32,14 +32,16 @@ const Shop = () => {
   useEffect(() => {
     const category = searchParams.get("category");
     const collection = searchParams.get("collection");
+    const newArrival = searchParams.get("newArrival") === "true";
+    const bestseller = searchParams.get("bestseller") === "true";
     
-    if (category || collection) {
-      setFilters((prev) => ({
-        ...prev,
-        category: category || "",
-        collection: collection || "",
-      }));
-    }
+    setFilters((prev) => ({
+      ...prev,
+      ...(category ? { category } : {}),
+      ...(collection ? { collection } : {}),
+      ...(newArrival ? { newArrival: true } : {}),
+      ...(bestseller ? { bestseller: true } : {}),
+    }));
   }, [searchParams]);
 
   useEffect(() => {
@@ -88,6 +90,16 @@ const Shop = () => {
       });
     });
     return Array.from(map.values());
+  }, [products]);
+
+  const categoryOptions = useMemo(() => {
+    const all = products.map((p) => p.category).filter(Boolean);
+    return [...new Set(all)];
+  }, [products]);
+
+  const collectionOptions = useMemo(() => {
+    const all = products.map((p) => p.collection).filter(Boolean);
+    return [...new Set(all)];
   }, [products]);
 
   const toggleFilterValue = (field, value) => {
@@ -374,6 +386,50 @@ const Shop = () => {
                       >
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color.hexCode }} />
                         <span>{color.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Categories */}
+              {categoryOptions.length > 0 && (
+                <div className="space-y-2 sm:space-y-2.5 pt-3 sm:pt-4 border-t border-gray-700/50">
+                  <p className="text-xs sm:text-xs uppercase tracking-[0.12em] text-gray-500">Categories</p>
+                  <div className="space-y-1 sm:space-y-1.5">
+                    {categoryOptions.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setFilters(prev => ({ ...prev, category: prev.category === cat ? "" : cat }))}
+                        className={`w-full px-2 sm:px-2.5 py-1 sm:py-1.5 rounded text-[10px] sm:text-[11px] uppercase border transition-all text-left ${
+                          filters.category === cat
+                            ? "border-white text-white bg-white/10"
+                            : "border-gray-600 text-gray-400 hover:border-gray-400 bg-transparent"
+                        }`}
+                      >
+                        {cat.replace(/-/g, ' ')}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Collections */}
+              {collectionOptions.length > 0 && (
+                <div className="space-y-2 sm:space-y-2.5 pt-3 sm:pt-4 border-t border-gray-700/50">
+                  <p className="text-xs sm:text-xs uppercase tracking-[0.12em] text-gray-500">Collections</p>
+                  <div className="space-y-1 sm:space-y-1.5">
+                    {collectionOptions.map((col) => (
+                      <button
+                        key={col}
+                        onClick={() => setFilters(prev => ({ ...prev, collection: prev.collection === col ? "" : col }))}
+                        className={`w-full px-2 sm:px-2.5 py-1 sm:py-1.5 rounded text-[10px] sm:text-[11px] uppercase border transition-all text-left ${
+                          filters.collection === col
+                            ? "border-white text-white bg-white/10"
+                            : "border-gray-600 text-gray-400 hover:border-gray-400 bg-transparent"
+                        }`}
+                      >
+                        {col.replace(/-/g, ' ')}
                       </button>
                     ))}
                   </div>

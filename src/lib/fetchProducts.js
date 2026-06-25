@@ -81,6 +81,12 @@ const mapProduct = (product) => {
     careInstructions: product.careInstructions || null,
     sizeGuide: product.sizeGuide || null,
     weight: product.weight || null,
+    category: product.category || (product.categories ? product.categories[0] : null) || null,
+    collection: product.collection || (product.collections ? product.collections[0] : null) || null,
+    averageRating: product.reviewRatings && product.reviewRatings.length > 0 
+      ? product.reviewRatings.reduce((a, b) => a + b, 0) / product.reviewRatings.length 
+      : 0,
+    totalReviews: product.reviewRatings ? product.reviewRatings.length : 0,
     availableColors: availableColors,
     availableSizes: availableSizes,
     variants: variants.map((variant) => ({
@@ -134,6 +140,11 @@ export async function fetchProducts() {
     careInstructions,
     sizeGuide,
     weight,
+    "category": category->slug.current,
+    "categories": categories[]->slug.current,
+    "collection": collection->slug.current,
+    "collections": collections[]->slug.current,
+    "reviewRatings": *[_type == "review" && product._ref == ^._id && isApproved == true].rating,
     availableSizes,
     variants[]{
       _key,
@@ -175,6 +186,7 @@ export async function fetchProductById(slugOrId) {
     careInstructions,
     sizeGuide,
     weight,
+    "reviewRatings": *[_type == "review" && product._ref == ^._id && isApproved == true].rating,
     availableSizes,
     variants[]{
       _key,

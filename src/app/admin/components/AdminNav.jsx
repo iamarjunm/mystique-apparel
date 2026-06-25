@@ -11,6 +11,7 @@ import {
   Megaphone,
   Settings,
   LogOut,
+  Star,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -22,6 +23,7 @@ const menuItems = [
   { name: "Products", href: "/admin/products", icon: Package },
   { name: "Emails", href: "/admin/emails", icon: Mail },
   { name: "Contact Forms", href: "/admin/contact-forms", icon: Mail },
+  { name: "Reviews", href: "/admin/reviews", icon: Star },
   { name: "Marketing", href: "/admin/marketing", icon: Megaphone },
   { name: "Site Settings", href: "/admin/site-settings", icon: Settings },
 ];

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import formatCurrency from "@/lib/formatCurrency";
+import { Star } from "lucide-react";
 
 const ProductCard = ({ product }) => {
   const { 
@@ -20,6 +21,8 @@ const ProductCard = ({ product }) => {
     featured = false,
     newArrival = false,
     bestseller = false,
+    averageRating = 0,
+    totalReviews = 0,
   } = product;
   
   // Handle slug - could be string or object with current property
@@ -92,6 +95,16 @@ const ProductCard = ({ product }) => {
       <div className="mt-1.5 sm:mt-2 md:mt-3">
         {/* Product Name */}
         <h3 className="text-[11px] sm:text-xs md:text-sm font-semibold text-gray-100 line-clamp-2 min-h-[1.5rem] sm:min-h-[2rem] uppercase tracking-wide">{title}</h3>
+
+        {/* Rating */}
+        {totalReviews > 0 && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-yellow-400 text-yellow-400" />
+            <span className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-gray-300">
+              {averageRating.toFixed(1)} <span className="text-gray-500">({totalReviews})</span>
+            </span>
+          </div>
+        )}
 
         {/* Available Colors */}
         {availableColors.length > 0 && (

@@ -105,7 +105,7 @@ export default function Categories() {
         </motion.div>
 
         {/* Category Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
           {categories.map((category, index) => (
             <motion.div
               key={category.slug}
@@ -115,8 +115,8 @@ export default function Categories() {
               viewport={{ once: true }}
               className="group"
             >
-              <Link href={`/categories/${category.slug}`}>
-                <div className="relative w-full overflow-hidden bg-gradient-to-br from-zinc-900 to-black border border-white/15 transition-all duration-500 group-hover:border-white/40 group-hover:shadow-2xl group-hover:shadow-white/10 rounded-lg aspect-[3/4] max-h-[200px] sm:max-h-[250px] md:max-h-[320px] lg:max-h-[400px]">
+              <Link href={`/shop?category=${category.slug}`}>
+                <div className="relative w-full overflow-hidden bg-gradient-to-br from-zinc-900 to-black border border-white/15 transition-all duration-500 group-hover:border-white/40 group-hover:shadow-2xl group-hover:shadow-white/10 rounded-lg aspect-[3/4] max-h-[160px] sm:max-h-[250px] md:max-h-[320px] lg:max-h-[400px]">
                   {/* Image with Filter */}
                   <img
                     src={category.image}

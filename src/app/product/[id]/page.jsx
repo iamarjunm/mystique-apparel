@@ -7,6 +7,8 @@ import ProductCard from "@/components/ProductCard";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCart } from "@/context/CartContext";
 import Toast from "@/components/Toast";
+import Reviews from "@/components/Reviews";
+import { Star, ChevronDown, ArrowLeft, Heart, Minus, Plus, ShoppingBag, Truck, RotateCcw, AlertCircle, Share2 } from "lucide-react";
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -369,6 +371,28 @@ export default function ProductDetails() {
               {product.title}
             </h1>
 
+            {/* Rating Section */}
+            {product.totalReviews > 0 && (
+              <div className="flex items-center gap-2 mb-3 sm:mb-4">
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={14}
+                      className={`${
+                        star <= Math.round(product.averageRating)
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "fill-transparent text-gray-600"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs sm:text-sm text-gray-300 font-medium">
+                  {product.averageRating.toFixed(1)} <span className="text-gray-500">({product.totalReviews} {product.totalReviews === 1 ? 'review' : 'reviews'})</span>
+                </span>
+              </div>
+            )}
+
             {/* Price Section */}
             <div className="mb-3 sm:mb-4">
               {product.originalPrice && (
@@ -641,11 +665,14 @@ export default function ProductDetails() {
           </div>
         </div>
 
+        {/* Reviews Section */}
+        <Reviews productId={product.id} productVariants={product.variants || []} />
+
         {/* Recommended Products */}
         {recommendedProducts.length > 0 && (
           <div className="mb-8 sm:mb-10 md:mb-12">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 sm:mb-6">Recommended Products</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5 md:gap-6">
               {recommendedProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

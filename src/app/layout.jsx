@@ -22,10 +22,8 @@ export default function RootLayout({ children }) {
           <UserProvider>
             <WishlistProvider>
               <CartProvider>
-                <div className="fixed top-0 left-0 right-0 z-50">
+                <div className="fixed top-0 left-0 right-0 z-50 flex flex-col">
                   <AnnouncementBar />
-                </div>
-                <div className="relative z-40">
                   <Navbar />
                 </div>
                 <main className="flex-grow pt-24">{children}</main>
