@@ -16,7 +16,7 @@ export default function ProductEditModal({
 }) {
   const handleCheckboxChange = (e) => {
     const { name, checked } = e.target;
-    onInputChange({ target: { name, value: checked, type: "checkbox" } });
+    onInputChange({ target: { name, value: checked, type: "checkbox", checked } });
   };
 
   const getImageUrl = (image) => {
@@ -292,7 +292,7 @@ export default function ProductEditModal({
               <input
                 type="checkbox"
                 name="featured"
-                checked={formData.featured}
+                checked={formData.featured || false}
                 onChange={handleCheckboxChange}
                 className="w-5 h-5 rounded bg-black/40 border border-white/20 checked:bg-blue-500 checked:border-blue-500 cursor-pointer"
               />
@@ -306,7 +306,7 @@ export default function ProductEditModal({
               <input
                 type="checkbox"
                 name="newArrival"
-                checked={formData.newArrival}
+                checked={formData.newArrival || false}
                 onChange={handleCheckboxChange}
                 className="w-5 h-5 rounded bg-black/40 border border-white/20 checked:bg-green-500 checked:border-green-500 cursor-pointer"
               />
@@ -320,7 +320,7 @@ export default function ProductEditModal({
               <input
                 type="checkbox"
                 name="bestseller"
-                checked={formData.bestseller}
+                checked={formData.bestseller || false}
                 onChange={handleCheckboxChange}
                 className="w-5 h-5 rounded bg-black/40 border border-white/20 checked:bg-red-500 checked:border-red-500 cursor-pointer"
               />

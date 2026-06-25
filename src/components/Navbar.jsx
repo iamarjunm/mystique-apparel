@@ -40,7 +40,16 @@ export default function Navbar() {
         setCategories(catData || []);
 
         const prodData = await fetchProducts();
-        setFeaturedProducts(prodData ? prodData.slice(0, 2) : []);
+        if (prodData) {
+          const featured = prodData.filter(p => p.featured);
+          if (featured.length > 0) {
+            setFeaturedProducts(featured.slice(0, 2));
+          } else {
+            setFeaturedProducts(prodData.slice(0, 2));
+          }
+        } else {
+          setFeaturedProducts([]);
+        }
       } catch (error) {
         console.error('[NAVBAR] Error fetching nav data:', error);
       }
