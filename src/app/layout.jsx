@@ -10,8 +10,46 @@ import { ToastContainer } from "react-toastify"; // Import ToastContainer
 import "react-toastify/dist/ReactToastify.css"; // Import the CSS for react-toastify
 
 export const metadata = {
-  title: "Mystique Apparel",
-  description: "Dark fashion, bold style.",
+  metadataBase: new URL("https://mystiqueapparel.in"),
+  title: {
+    template: "%s | Mystique Apparel",
+    default: "Mystique Apparel | Premium Streetwear & Dark Fashion",
+  },
+  description: "Discover premium streetwear and dark fashion at Mystique Apparel. Bold style, high-quality fabrics, and unique designs born in India.",
+  keywords: ["streetwear", "dark fashion", "premium apparel", "mystique apparel", "india streetwear", "clothing brand", "oversized t-shirts"],
+  openGraph: {
+    title: "Mystique Apparel | Premium Streetwear",
+    description: "Discover premium streetwear and dark fashion at Mystique Apparel. Bold style, high-quality fabrics, and unique designs.",
+    url: "https://mystiqueapparel.in",
+    siteName: "Mystique Apparel",
+    images: [
+      {
+        url: "/logo.png",
+        width: 1200,
+        height: 630,
+        alt: "Mystique Apparel Logo",
+      }
+    ],
+    locale: "en_IN",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Mystique Apparel | Premium Streetwear",
+    description: "Discover premium streetwear and dark fashion at Mystique Apparel.",
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({ children }) {
