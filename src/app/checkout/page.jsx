@@ -125,6 +125,7 @@ const CheckoutPage = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [total, setTotal] = useState(0);
   const [selectedShippingRate, setSelectedShippingRate] = useState(null);
   const [shippingRates, setShippingRates] = useState([]);
@@ -377,11 +378,13 @@ const CheckoutPage = () => {
               console.log('Order created successfully:', orderData);
               
               // Clear cart and redirect
+              setIsRedirecting(true);
               router.push(`/order-confirmation?orderId=${orderData.orderId}`);
             } catch (error) {
               console.error("Order creation error:", error);
               setError(error.message || "Failed to process your order");
               setLoading(false);
+              setIsRedirecting(false);
             }
           },
           prefill: {
@@ -482,12 +485,14 @@ const CheckoutPage = () => {
           }
 
           const orderData = await orderResponse.json();
+          setIsRedirecting(true);
           router.push(`/order-confirmation?orderId=${orderData.orderId}`);
           return;
         } catch (error) {
           console.error("Free order creation error:", error);
           setError(error.message || "Failed to create order");
           setLoading(false);
+          setIsRedirecting(false);
           return;
         }
       }
@@ -550,13 +555,14 @@ const CheckoutPage = () => {
             }
   
             const orderData = await orderResponse.json();
+            setIsRedirecting(true);
             router.push(`/order-confirmation?orderId=${orderData.orderId}`);
             
           } catch (error) {
             console.error("Order processing error:", error);
             setError(`Payment succeeded but order failed. Contact support with ID: ${response.razorpay_payment_id}`);
-          } finally {
             setLoading(false);
+            setIsRedirecting(false);
           }
         },
         prefill: {
@@ -689,7 +695,7 @@ const CheckoutPage = () => {
             
             <div className="mt-3 sm:mt-4 md:mt-5">
               <PaymentButton
-                loading={loading}
+                loading={loading || isRedirecting}
                 selectedShippingRate={selectedShippingRate}
                 onClick={handleSubmit}
                 cart={cart}
@@ -702,6 +708,20 @@ const CheckoutPage = () => {
         </div>
       </div>
       </div>
+
+      {/* Redirecting Overlay */}
+      {isRedirecting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="text-center p-8 bg-gray-900 rounded-2xl border border-gray-700 shadow-2xl max-w-sm w-full mx-4">
+            <svg className="animate-spin h-12 w-12 text-white mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <h3 className="text-xl font-bold text-white mb-2">Payment Successful!</h3>
+            <p className="text-gray-400">Redirecting to order confirmation...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

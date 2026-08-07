@@ -23,6 +23,7 @@ function buildInvoiceDoc(orderData) {
     discountCode = null,
     discountAmount = 0,
     totalAmount = 0,
+    paymentMethod = null,
     orderDate,
   } = orderData;
 
@@ -72,12 +73,17 @@ function buildInvoiceDoc(orderData) {
   doc.text('apparelmystique1@gmail.com', 18, 54);
   doc.text('www.mystiqueapparel.in', 18, 59);
 
+  let paymentText = 'Online';
+  if (paymentMethod === 'cod') paymentText = 'Cash on Delivery';
+  else if (paymentMethod) paymentText = paymentMethod.toUpperCase();
+
   // Invoice metadata block
   doc.rect(114, 36, 82, 28);
   doc.setFontSize(9);
-  drawLabelValue(doc, 'Invoice No:', invoiceNo, 118, 192, 44);
-  drawLabelValue(doc, 'Order No:', orderNo, 118, 192, 50);
-  drawLabelValue(doc, 'Date:', dateText, 118, 192, 56);
+  drawLabelValue(doc, 'Invoice No:', invoiceNo, 118, 192, 42);
+  drawLabelValue(doc, 'Order No:', orderNo, 118, 192, 48);
+  drawLabelValue(doc, 'Date:', dateText, 118, 192, 54);
+  drawLabelValue(doc, 'Payment:', paymentText, 118, 192, 60);
 
   // Bill/Ship blocks
   doc.rect(14, 70, 90, 36);
@@ -195,7 +201,7 @@ function buildInvoiceDoc(orderData) {
   drawLabelValue(doc, 'Subtotal', subtotal.toFixed(2), 128, 192, totalsTop + 7);
   drawLabelValue(doc, 'Shipping', shippingCost > 0 ? shippingCost.toFixed(2) : 'FREE', 128, 192, totalsTop + 13);
   if (tax > 0) drawLabelValue(doc, 'Tax (GST)', tax.toFixed(2), 128, 192, totalsTop + 19);
-  if (discountAmount > 0) drawLabelValue(doc, 'Discount', `-${discountAmount.toFixed(2)}`, 128, 192, totalsTop + 25);
+  if (discountAmount > 0) drawLabelValue(doc, discountCode ? `Discount (${discountCode})` : 'Discount', `-${discountAmount.toFixed(2)}`, 128, 192, totalsTop + 25);
 
   doc.setDrawColor(...colors.dark);
   doc.line(128, totalsTop + 29, 192, totalsTop + 29);

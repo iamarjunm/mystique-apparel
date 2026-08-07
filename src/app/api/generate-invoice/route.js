@@ -37,6 +37,7 @@ export async function GET(request) {
       discountCode,
       discountAmount,
       total,
+      paymentMethod,
       _createdAt
     }`;
 
@@ -80,8 +81,10 @@ export async function GET(request) {
       subtotal: order.subtotal,
       shippingCost: order.shippingCost || 0,
       tax: order.tax || 0,
-      discount: order.discount || 0,
+      discount: order.discountAmount || 0, // Make sure to use discountAmount
+      discountCode: order.discountCode || null,
       totalAmount: order.total,
+      paymentMethod: order.paymentMethod,
       orderDate: order._createdAt,
     });
 

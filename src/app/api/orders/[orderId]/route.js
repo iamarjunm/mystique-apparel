@@ -69,6 +69,11 @@ export async function GET(request, { params }) {
       createdAt: order.createdAt,
       email: order.customerEmail,
       total: Number(order.total || 0),
+      subtotal: Number(order.subtotal || 0),
+      shippingCost: Number(order.shippingCost || 0),
+      tax: Number(order.tax || 0),
+      discountAmount: Number(order.discountAmount || 0),
+      discountCode: order.discountCode || null,
       items: (order.items || []).map(item => ({
         id: item._key || item.productTitle,
         name: item.productTitle,
