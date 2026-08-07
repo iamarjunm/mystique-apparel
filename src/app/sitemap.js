@@ -7,7 +7,7 @@ export default async function sitemap() {
   const products = await fetchProducts();
 
   const productUrls = products.map((product) => ({
-    url: `${baseUrl}/product/${product.id}`, // the route uses [id], not slug, in Mystique Apparel right now
+    url: `${baseUrl}/product/${product.slug || product.id}`,
     lastModified: new Date(),
     changeFrequency: "weekly",
     priority: 0.8,

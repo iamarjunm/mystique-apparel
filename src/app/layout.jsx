@@ -24,7 +24,7 @@ export const metadata = {
     siteName: "Mystique Apparel",
     images: [
       {
-        url: "/logo.png",
+        url: "/tshirt.jpg",
         width: 1200,
         height: 630,
         alt: "Mystique Apparel Logo",
@@ -37,7 +37,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Mystique Apparel | Premium Streetwear",
     description: "Discover premium streetwear and dark fashion at Mystique Apparel.",
-    images: ["/logo.png"],
+    images: ["/tshirt.jpg"],
   },
   robots: {
     index: true,
@@ -53,8 +53,44 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://mystiqueapparel.in/#organization",
+        name: "Mystique Apparel",
+        url: "https://mystiqueapparel.in",
+        logo: "https://mystiqueapparel.in/tshirt.jpg",
+        sameAs: [
+          "https://www.instagram.com/mystique_.apparel/"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://mystiqueapparel.in/#website",
+        url: "https://mystiqueapparel.in",
+        name: "Mystique Apparel",
+        publisher: {
+          "@id": "https://mystiqueapparel.in/#organization"
+        },
+        potentialAction: {
+          "@type": "SearchAction",
+          target: "https://mystiqueapparel.in/shop?q={search_term_string}",
+          "query-input": "required name=search_term_string"
+        }
+      }
+    ]
+  };
+
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="antialiased bg-primary-bg text-primary-text dark:bg-primary-bg dark:text-primary-text flex flex-col min-h-screen">
         <AuthProvider>
           <UserProvider>

@@ -57,6 +57,43 @@ export async function generateMetadata({ params }) {
   }
 }
 
-export default function ProductPage({ params }) {
-  return <ProductClient id={params.id} />;
+export default async function ProductPage({ params }) {
+  const { id } = params;
+  const product = await fetchProductById(id);
+
+  if (!product) {
+    return <ProductClient id={id} />;
+  }
+
+  // Construct JSON-LD Schema for Google Rich Snippets
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    image: product.frontImage || (product.images && product.images[0]),
+    description: product.description,
+    sku: product.slug || id,
+    brand: {
+      "@type": "Brand",
+      name: "Mystique Apparel",
+    },
+    offers: {
+      "@type": "Offer",
+      url: `https://mystiqueapparel.in/product/${product.slug || id}`,
+      priceCurrency: "INR",
+      price: parseFloat(product.price),
+      itemCondition: "https://schema.org/NewCondition",
+      availability: "https://schema.org/InStock",
+    },
+  };
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <ProductClient id={id} />
+    </>
+  );
 }

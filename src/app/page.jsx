@@ -110,7 +110,7 @@ export default function HomePage() {
           {/* Newsletter Section */}
           <motion.section
             variants={itemVariants}
-            className="py-12 sm:py-16 md:py-20"
+            className="pt-12 sm:pt-16 md:pt-20"
           >
             <Newsletter />
           </motion.section>
