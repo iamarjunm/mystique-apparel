@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
+import { useEffect } from "react";
 
 /**
  * Google Sign-In Loading Modal
@@ -11,85 +11,48 @@ import { useEffect } from 'react'
 export function GoogleSignInModal({ isOpen, onClose }) {
   useEffect(() => {
     if (isOpen) {
-      console.log('[MODAL] Modal opened')
-      document.body.style.overflow = 'hidden'
+      document.body.style.overflow = "hidden";
     } else {
-      console.log('[MODAL] Modal closed')
-      document.body.style.overflow = 'unset'
+      document.body.style.overflow = "unset";
     }
     return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isOpen])
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <style>{`
-        @keyframes spin-fast {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        @keyframes pulse-ring {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.1); }
-        }
-        .spinner-ring {
-          animation: spin-fast 1.2s linear infinite;
-        }
-        .pulse-ring {
-          animation: pulse-ring 2s ease-in-out infinite;
-        }
-      `}</style>
-
-      <div className="bg-gradient-to-br from-gray-900 to-black border border-gray-800 rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl">
+    <div className="fixed inset-0 bg-[#0A0A0A]/65 flex items-center justify-center z-50 px-4">
+      <div className="bg-white border border-[#0D0D0D]/15 rounded-[2px] p-8 sm:p-10 max-w-sm w-full text-center">
         <div className="flex flex-col items-center gap-6">
-          {/* Animated Spinner */}
-          <div className="relative w-16 h-16">
-            {/* Outer ring */}
-            <div className="absolute inset-0 rounded-full border-3 border-gray-800"></div>
-            
-            {/* Animated spinner ring */}
-            <div className="absolute inset-0 rounded-full border-3 border-transparent border-t-white border-r-gray-500 spinner-ring"></div>
-            
-            {/* Inner pulse */}
-            <div className="absolute inset-3 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 pulse-ring"></div>
+          {/* Minimalist Monochrome Spinner */}
+          <div className="relative w-12 h-12">
+            <div className="absolute inset-0 rounded-full border border-[#0D0D0D]/15" />
+            <div className="absolute inset-0 rounded-full border-t border-[#0D0D0D] animate-spin" />
           </div>
 
-          {/* Text */}
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-white">
+          <div>
+            <span className="font-mono-tech text-[10px] tracking-[0.3em] uppercase text-[#64625C] block mb-1.5">
+              Google Authentication
+            </span>
+            <h3 className="font-display italic text-2xl text-[#0D0D0D]">
               Authenticating
             </h3>
-            <p className="text-sm text-gray-400 mt-2">
-              Verifying your identity...
+            <p className="font-body text-xs text-[#64625C] mt-2 leading-relaxed">
+              Complete sign-in in the Google popup window...
             </p>
           </div>
 
-          {/* Animated dots */}
-          <div className="flex gap-2">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="w-2 h-2 rounded-full bg-gray-600"
-                style={{
-                  animation: `pulse 1.4s ease-in-out infinite`,
-                  animationDelay: `${i * 0.2}s`,
-                }}
-              ></div>
-            ))}
-          </div>
-
-          {/* Cancel button */}
           <button
+            type="button"
             onClick={onClose}
-            className="mt-2 px-6 py-2 text-xs font-medium text-gray-400 hover:text-white border border-gray-700 hover:border-gray-600 rounded-lg transition-all duration-200 hover:bg-gray-900/50"
+            className="mt-1 px-6 py-2.5 font-mono-tech text-[10px] uppercase tracking-[0.22em] text-[#0D0D0D] border border-[#0D0D0D]/25 hover:border-[#0D0D0D] rounded-[2px] transition-colors"
           >
             Cancel
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }

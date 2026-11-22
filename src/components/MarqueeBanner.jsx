@@ -1,36 +1,44 @@
 "use client";
 
-import { motion } from "framer-motion";
+const MARQUEE_ITEMS = [
+  { text: "240–280 GSM Heavyweight Cotton", highlight: true },
+  { text: "Architectural Drop-Shoulder Block", highlight: false },
+  { text: "Enzyme Bio-Washed Finish", highlight: false },
+  { text: "Numbered Small-Batch Runs", highlight: true },
+  { text: "Noir Atelier × Studio Gallery", highlight: false },
+  { text: "Hand-Inspected In India", highlight: true },
+  { text: "Pre-Shrunk Precision Drape", highlight: false },
+];
 
 export default function MarqueeBanner() {
   return (
-    <div className="border-y border-white/10 bg-gradient-to-br from-gray-950/40 via-black to-gray-950/40 py-2 sm:py-3 overflow-hidden flex relative z-14">
-      <motion.div
-        className="flex whitespace-nowrap"
-        animate={{ x: ["0%", "-50%"] }}
-        transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
-      >
-        {[...Array(2)].map((_, i) => (
-          <div key={i} className="flex items-center space-x-4 sm:space-x-6 px-4">
-            <span className="text-xs sm:text-sm font-bold tracking-[0.2em] uppercase text-white/40">
-              Premium Heavyweight
-            </span>
-            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white/20" />
-            <span className="text-xs sm:text-sm font-bold tracking-[0.2em] uppercase text-white/40">
-              Oversized Fit
-            </span>
-            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white/20" />
-            <span className="text-xs sm:text-sm font-bold tracking-[0.2em] uppercase text-white/40">
-              Dark Aesthetics
-            </span>
-            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white/20" />
-            <span className="text-xs sm:text-sm font-bold tracking-[0.2em] uppercase text-white/40">
-              Limited Drops
-            </span>
-            <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-white/20" />
+    <div className="relative overflow-hidden py-3.5 sm:py-4 bg-[#0A0A0A] border-y border-white/[0.12]">
+      <div className="absolute left-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-r from-[#0A0A0A] to-transparent z-10 pointer-events-none" />
+      <div className="absolute right-0 top-0 bottom-0 w-16 sm:w-32 bg-gradient-to-l from-[#0A0A0A] to-transparent z-10 pointer-events-none" />
+
+      <div className="animate-marquee-slow items-center">
+        {[0, 1].map((dup) => (
+          <div key={dup} className="flex items-center">
+            {[0, 1].map((rep) =>
+              MARQUEE_ITEMS.map((item, idx) => (
+                <div
+                  key={`${dup}-${rep}-${idx}`}
+                  className="flex items-center whitespace-nowrap"
+                >
+                  <span
+                    className={`font-mono-tech text-[10px] sm:text-[11px] tracking-[0.3em] uppercase px-6 sm:px-9 ${
+                      item.highlight ? "text-[#F4F2ED]" : "text-[#8E8B84]"
+                    }`}
+                  >
+                    {item.text}
+                  </span>
+                  <span className="w-1 h-1 bg-white/25 inline-block" />
+                </div>
+              ))
+            )}
           </div>
         ))}
-      </motion.div>
+      </div>
     </div>
   );
 }

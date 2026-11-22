@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { ArrowUpRight } from "lucide-react";
 import { client, urlFor } from "../../sanity";
 
 export default function Categories() {
@@ -12,7 +13,6 @@ export default function Categories() {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        console.log('[CATEGORIES] 🏷️ Fetching categories from Sanity...');
         const query = `*[_type == "category"]|order(title asc){
           _id,
           title,
@@ -20,20 +20,19 @@ export default function Categories() {
           image,
           description
         }`;
-
         const data = await client.fetch(query);
-        console.log('[CATEGORIES] ✅ Fetched categories:', data);
-
-        const mappedCategories = data.map(cat => ({
+        const mapped = (data || []).map((cat) => ({
+          id: cat._id,
           name: cat.title,
           slug: cat.slug?.current || cat.slug,
-          image: cat.image?.asset?._ref ? urlFor(cat.image).width(600).height(800).url() : '/tshirt.jpg',
-          description: cat.description,
+          image: cat.image?.asset?._ref
+            ? urlFor(cat.image).width(800).height(1060).url()
+            : "/images/editorial-atelier.jpg",
+          description: cat.description || "Heavyweight architectural silhouettes.",
         }));
-
-        setCategories(mappedCategories);
+        setCategories(mapped);
       } catch (error) {
-        console.error('[CATEGORIES] ❌ Error fetching categories:', error);
+        console.error("[CATEGORIES] Error fetching categories:", error);
       } finally {
         setLoading(false);
       }
@@ -42,125 +41,109 @@ export default function Categories() {
     fetchCategories();
   }, []);
 
-  if (loading) {
-    return (
-      <section className="relative">
-        <div className="container mx-auto px-4 sm:px-5 md:px-6 max-w-7xl">
-          <div className="text-center mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-[0.2em] mb-2">
-              Shop by{" "}
-              <span className="bg-gradient-to-r from-zinc-300 via-white to-zinc-200 bg-clip-text text-transparent">
-                Category
-              </span>
-            </h2>
-            <div className="w-12 h-[2px] bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
-          </div>
-          <div className="flex justify-center">
-            <p className="text-zinc-400 animate-pulse text-xs sm:text-sm">Loading categories...</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  if (categories.length === 0) {
-    return (
-      <section className="relative">
-        <div className="container mx-auto px-4 sm:px-5 md:px-6 max-w-7xl">
-          <div className="text-center mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-[0.2em] mb-2">
-              Shop by{" "}
-              <span className="bg-gradient-to-r from-zinc-300 via-white to-zinc-200 bg-clip-text text-transparent">
-                Category
-              </span>
-            </h2>
-            <div className="w-12 h-[2px] bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
-          </div>
-          <div className="flex justify-center">
-            <p className="text-zinc-400 text-xs sm:text-sm">No categories available</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="relative">
-      <div className="container mx-auto px-4 sm:px-5 md:px-6 max-w-7xl">
-        {/* Title */}
+    <section className="relative bg-[#F6F5F1] text-[#0D0D0D]">
+      <div className="max-w-[1380px] mx-auto">
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
           viewport={{ once: true }}
-          className="text-center mb-6 sm:mb-8"
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10 sm:mb-12 pb-6 border-b border-[#0D0D0D]/[0.12]"
         >
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-[0.2em] mb-2">
-            Shop by{" "}
-            <span className="bg-gradient-to-r from-zinc-300 via-white to-zinc-200 bg-clip-text text-transparent">
-              Category
+          <div>
+            <span className="font-mono-tech text-[10px] tracking-[0.32em] uppercase text-[#64625C] block mb-2.5">
+              02 // Silhouette Directory
             </span>
-          </h2>
-          <div className="w-12 h-[2px] bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-[-0.02em] text-[#0D0D0D]">
+              Shop by <span className="italic font-normal">Category</span>
+            </h2>
+          </div>
+
+          <Link
+            href="/shop"
+            className="font-mono-tech text-[10px] tracking-[0.24em] uppercase text-[#64625C] hover:text-[#0D0D0D] inline-flex items-center gap-1.5 transition-colors"
+          >
+            View All Silhouettes
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
         </motion.div>
 
-        {/* Category Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-          {categories.map((category, index) => (
-            <motion.div
-              key={category.slug}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: "easeOut", delay: index * 0.1 }}
-              viewport={{ once: true }}
-              className="group"
-            >
-              <Link href={`/shop?category=${category.slug}`}>
-                <div className="relative w-full overflow-hidden bg-gradient-to-br from-zinc-900 to-black border border-white/15 transition-all duration-500 group-hover:border-white/40 group-hover:shadow-2xl group-hover:shadow-white/10 rounded-lg aspect-[3/4] max-h-[160px] sm:max-h-[250px] md:max-h-[320px] lg:max-h-[400px]">
-                  {/* Image with Filter */}
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="w-full h-full object-cover transition-all duration-700 ease-out group-hover:scale-105 rounded-lg"
-                  />
+        {loading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="aspect-[3/4] rounded-none skeleton-shimmer border border-[#0D0D0D]/[0.08]"
+              />
+            ))}
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="py-14 text-center bg-white border border-[#0D0D0D]/[0.1] rounded-none">
+            <p className="font-mono-tech text-xs tracking-[0.2em] uppercase text-[#64625C]">
+              Categories coming soon
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+            {categories.map((category, index) => (
+              <motion.div
+                key={category.slug || category.id}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.65,
+                  ease: [0.16, 1, 0.3, 1],
+                  delay: index * 0.06,
+                }}
+                viewport={{ once: true }}
+                className="group"
+              >
+                <Link href={`/shop?category=${category.slug}`} className="block">
+                  <div className="relative w-full overflow-hidden bg-[#EAE8E2] border border-[#0D0D0D]/[0.1] rounded-none aspect-[3/4] transition-colors duration-300 group-hover:border-[#0D0D0D]/40">
+                    {/* Crisp Unmuted Photography */}
+                    <img
+                      src={category.image}
+                      alt={category.name}
+                      loading="lazy"
+                      className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                    />
 
-                  {/* Dark Gradient Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent transition-opacity duration-700" />
+                    {/* Subtle Bottom Scrim ONLY Behind White Serif Title */}
+                    <div className="absolute inset-x-0 bottom-0 h-[44%] bg-gradient-to-t from-[#0A0A0A]/85 via-[#0A0A0A]/35 to-transparent pointer-events-none" />
 
-                  {/* Hover Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/0 via-transparent to-white/0 group-hover:from-white/5 group-hover:via-white/0 group-hover:to-white/5 transition-all duration-500" />
+                    {/* Top Index & Square Arrow */}
+                    <div className="absolute top-3 sm:top-4 left-3 sm:left-4 right-3 sm:right-4 flex items-center justify-between z-10">
+                      <span className="font-mono-tech text-[10px] tracking-[0.22em] text-[#0D0D0D] bg-[#F6F5F1] px-2.5 py-1 rounded-none border border-[#0D0D0D]/15">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span className="w-8 h-8 rounded-none bg-[#F6F5F1] border border-[#0D0D0D]/15 flex items-center justify-center text-[#0D0D0D] group-hover:bg-[#0D0D0D] group-hover:text-[#F4F2ED] group-hover:border-[#0D0D0D] transition-colors duration-300">
+                        <ArrowUpRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
 
-                  {/* Top Accent Line */}
-                  <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                  {/* Content Container */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-6 md:p-8">
-                    {/* Category Name */}
-                    <div className="text-center">
-                      <h3 className="text-sm sm:text-lg md:text-xl lg:text-2xl font-black uppercase text-white tracking-[0.15em] transition-all duration-500 group-hover:tracking-[0.25em] mb-2 sm:mb-3">
+                    {/* Bottom Editorial Title */}
+                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 z-10">
+                      <h3 className="font-display italic text-xl sm:text-2xl font-normal text-[#F4F2ED] tracking-wide transition-transform duration-300 group-hover:-translate-y-0.5">
                         {category.name}
                       </h3>
-
-                      {/* Animated Underline */}
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-0 h-px bg-white group-hover:w-6 transition-all duration-500" />
-                        <span className="text-[7px] sm:text-[9px] tracking-[0.25em] uppercase text-white/60 opacity-0 group-hover:opacity-100 transition-all duration-500">
+                      <p className="font-body text-[11px] text-[#F4F2ED]/75 line-clamp-1 mt-1">
+                        {category.description}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="h-px w-5 bg-[#F4F2ED]/70 transition-all duration-300 group-hover:w-9" />
+                        <span className="font-mono-tech text-[9px] tracking-[0.26em] uppercase text-[#F4F2ED]">
                           Explore
                         </span>
-                        <div className="w-0 h-px bg-white group-hover:w-6 transition-all duration-500" />
                       </div>
                     </div>
-
-                    {/* Bottom Corner Detail */}
-                    <div className="absolute bottom-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 p-4">
-                      <div className="w-8 h-8 border-r border-b border-white/30" />
-                    </div>
                   </div>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

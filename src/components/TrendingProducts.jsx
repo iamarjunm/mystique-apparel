@@ -1,147 +1,199 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 import { fetchProducts } from "@/lib/fetchProducts";
-import ProductCard from "@/components/ProductCard"; 
-import Link from "next/link"; 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import ProductCard from "@/components/ProductCard";
+
+const FILTER_TABS = [
+  { id: "all", label: "All Drops" },
+  { id: "newArrival", label: "New In" },
+  { id: "bestseller", label: "Bestsellers" },
+  { id: "featured", label: "Atelier Picks" },
+];
 
 export default function TrendingProducts() {
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("all");
+  const [isPaused, setIsPaused] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
     const getProducts = async () => {
-      const data = await fetchProducts();
-      setProducts(data.slice(0, 8));
+      try {
+        const data = await fetchProducts();
+        setProducts(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("[TRENDING] Failed to load products:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     getProducts();
   }, []);
 
-  const displayProducts = [...products, ...products, ...products, ...products, ...products, ...products];
+  const filteredProducts = useMemo(() => {
+    if (activeTab === "all") return products.slice(0, 10);
+    const matched = products.filter((p) => Boolean(p[activeTab]));
+    return (matched.length > 0 ? matched : products).slice(0, 10);
+  }, [products, activeTab]);
 
-  // Auto-scroll logic
+  // Gentle auto-scroll that pauses on hover
   useEffect(() => {
-    if (products.length === 0) return;
-    
-    if (scrollRef.current) {
-      const singleBlockWidth = scrollRef.current.scrollWidth / 6;
-      scrollRef.current.scrollTo({ left: singleBlockWidth * 2, behavior: 'instant' });
-    }
-
+    if (loading || filteredProducts.length <= 4 || isPaused) return;
     const interval = setInterval(() => {
-      if (scrollRef.current) {
-        const firstChild = scrollRef.current.children[0];
-        const scrollAmount = firstChild ? firstChild.clientWidth : 300;
-        scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      const container = scrollRef.current;
+      if (!container) return;
+      const maxScroll = container.scrollWidth - container.clientWidth;
+      if (container.scrollLeft >= maxScroll - 20) {
+        container.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        const cardWidth = container.children[0]?.clientWidth || 300;
+        container.scrollBy({ left: cardWidth + 20, behavior: "smooth" });
       }
-    }, 3000);
-
+    }, 4800);
     return () => clearInterval(interval);
-  }, [products]);
-
-  const handleScroll = () => {
-    if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth } = scrollRef.current;
-    const singleBlockWidth = scrollWidth / 6;
-
-    if (scrollLeft >= singleBlockWidth * 4) {
-      scrollRef.current.scrollTo({ left: scrollLeft - singleBlockWidth * 2, behavior: 'instant' });
-    }
-    if (scrollLeft <= singleBlockWidth) {
-      scrollRef.current.scrollTo({ left: scrollLeft + singleBlockWidth * 2, behavior: 'instant' });
-    }
-  };
+  }, [loading, filteredProducts.length, isPaused]);
 
   const scroll = (direction) => {
-    if (scrollRef.current) {
-      const firstChild = scrollRef.current.children[0];
-      const scrollAmount = firstChild ? firstChild.clientWidth : 300;
-      scrollRef.current.scrollBy({ 
-        left: direction === "left" ? -scrollAmount : scrollAmount, 
-        behavior: "smooth" 
-      });
-    }
+    const container = scrollRef.current;
+    if (!container) return;
+    const cardWidth = container.children[0]?.clientWidth || 300;
+    container.scrollBy({
+      left: direction === "left" ? -(cardWidth + 20) : cardWidth + 20,
+      behavior: "smooth",
+    });
   };
 
   return (
-    <section className="relative">
-      <div className="container mx-auto px-4 sm:px-5 md:px-6 max-w-7xl">
-        {/* Title Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="text-center mb-6 sm:mb-8"
-        >
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-[0.2em] mb-2">
-            Trending{" "}
-            <span className="bg-gradient-to-r from-zinc-300 via-white to-zinc-200 bg-clip-text text-transparent">
-              Now
-            </span>
-          </h2>
-          <div className="w-12 h-[2px] bg-gradient-to-r from-transparent via-white/50 to-transparent mx-auto"></div>
-        </motion.div>
-
-        {/* Carousel Area */}
-        <div className="relative group">
-          {products.length > 0 && (
-            <>
-              <button 
-                onClick={() => scroll("left")}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-6 z-10 bg-black/50 hover:bg-black/80 text-white p-2 sm:p-3 rounded-full backdrop-blur-sm border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              >
-                <ChevronLeft size={24} />
-              </button>
-              <button 
-                onClick={() => scroll("right")}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-6 z-10 bg-black/50 hover:bg-black/80 text-white p-2 sm:p-3 rounded-full backdrop-blur-sm border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-              >
-                <ChevronRight size={24} />
-              </button>
-            </>
-          )}
-
+    <section className="relative bg-[#F6F5F1] text-[#0D0D0D]">
+      <div className="max-w-[1380px] mx-auto">
+        {/* Header + Stark Underline Filter Tabs Row */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10 sm:mb-12 pb-6 border-b border-[#0D0D0D]/[0.12]">
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="flex -mx-2 overflow-x-auto snap-x snap-mandatory pb-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           >
-            {displayProducts.length === 0 ? (
-              <div className="w-full text-center py-12">
-                <p className="text-zinc-400 animate-pulse">Loading products...</p>
-              </div>
-            ) : (
-              displayProducts.map((product, idx) => (
-                <div key={`${product.id}-${idx}`} className="w-[40%] sm:w-1/3 lg:w-1/4 shrink-0 px-2 snap-start">
-                  <ProductCard product={product} />
-                </div>
-              ))
-            )}
+            <span className="font-mono-tech text-[10px] tracking-[0.32em] uppercase text-[#64625C] block mb-2.5">
+              01 // Curated Release
+            </span>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-[-0.02em] text-[#0D0D0D]">
+              Trending <span className="italic font-normal">Now</span>
+            </h2>
           </motion.div>
+
+          {/* Filter Tabs + Square Arrows */}
+          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-5 sm:gap-6">
+            <div className="flex items-center gap-5 sm:gap-7 overflow-x-auto hide-scrollbar">
+              {FILTER_TABS.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      scrollRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+                    }}
+                    className={`relative pb-2 font-mono-tech text-[10px] sm:text-[11px] tracking-[0.18em] uppercase whitespace-nowrap transition-colors ${
+                      isActive
+                        ? "text-[#0D0D0D] font-semibold"
+                        : "text-[#64625C] hover:text-[#0D0D0D]"
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    {isActive && (
+                      <motion.span
+                        layoutId="trendingTabUnderline"
+                        transition={{ type: "spring", stiffness: 380, damping: 34 }}
+                        className="absolute left-0 right-0 bottom-0 h-[1.5px] bg-[#0D0D0D]"
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {!loading && filteredProducts.length > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => scroll("left")}
+                  aria-label="Scroll left"
+                  className="w-10 h-10 rounded-none border border-[#0D0D0D]/20 bg-transparent flex items-center justify-center text-[#0D0D0D] hover:bg-[#0D0D0D] hover:text-[#F4F2ED] hover:border-[#0D0D0D] transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => scroll("right")}
+                  aria-label="Scroll right"
+                  className="w-10 h-10 rounded-none border border-[#0D0D0D]/20 bg-transparent flex items-center justify-center text-[#0D0D0D] hover:bg-[#0D0D0D] hover:text-[#F4F2ED] hover:border-[#0D0D0D] transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* View All Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut", delay: 0.4 }}
-          className="mt-6 sm:mt-8 text-center"
+        {/* Product Runway */}
+        <div
+          className="relative"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
         >
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+              {[0, 1, 2, 3].map((idx) => (
+                <div key={idx} className="space-y-3">
+                  <div className="aspect-[3/4] rounded-none skeleton-shimmer border border-[#0D0D0D]/[0.06]" />
+                  <div className="h-3.5 w-3/4 rounded-none skeleton-shimmer" />
+                  <div className="h-3 w-1/3 rounded-none skeleton-shimmer" />
+                </div>
+              ))}
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="py-16 text-center bg-white border border-[#0D0D0D]/[0.1] rounded-none">
+              <p className="font-display italic text-2xl text-[#0D0D0D] mb-2">
+                New drops arriving shortly
+              </p>
+              <p className="font-body text-xs text-[#64625C]">
+                Explore the full archive to discover available silhouettes.
+              </p>
+            </div>
+          ) : (
+            <div
+              ref={scrollRef}
+              className="flex gap-4 sm:gap-5 overflow-x-auto snap-x snap-mandatory pb-4 hide-scrollbar"
+            >
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="w-[70%] xs:w-[56%] sm:w-[39%] md:w-[31%] lg:w-[23.8%] shrink-0 snap-start"
+                >
+                  <ProductCard product={product} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Solid Ink CTA */}
+        <div className="mt-10 sm:mt-12 flex justify-center">
           <Link
             href="/shop"
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase tracking-[0.2em] bg-white/5 border border-white/10 text-white transition-all duration-300 hover:bg-white hover:text-black hover:border-white group"
+            className="group inline-flex items-center gap-3 px-9 py-4 rounded-none text-[11px] font-mono-tech font-semibold uppercase tracking-[0.24em] bg-[#0D0D0D] text-[#F4F2ED] border border-[#0D0D0D] hover:bg-transparent hover:text-[#0D0D0D] transition-colors duration-300"
           >
-            <span>Explore All</span>
-            <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
+            <span>Explore Full Archive</span>
+            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

@@ -30,11 +30,11 @@ const menuItems = [
 
 export default function AdminNav({ onNavigate }) {
   const pathname = usePathname();
-  const { logout, userData } = useAuth();
+  const { signOut, userData } = useAuth();
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logout();
+    await signOut();
     router.push("/");
   };
 

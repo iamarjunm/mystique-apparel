@@ -1,66 +1,128 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Send } from "lucide-react";
+import { ArrowRight, Check, Copy } from "lucide-react";
 import { useState } from "react";
+import { toast } from "react-toastify";
 
 export default function Newsletter() {
   const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [joined, setJoined] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert(`Subscribed successfully with: ${email}`);
-    setEmail("");
+    if (!email.trim()) return;
+    setSubmitting(true);
+
+    try {
+      await new Promise((res) => setTimeout(res, 500));
+      setJoined(true);
+      setEmail("");
+      toast.success("Welcome to The Private List. Enjoy early drop access.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard?.writeText("VOID20").then(() => {
+      setCopied(true);
+      toast.info("Code VOID20 copied to clipboard");
+      setTimeout(() => setCopied(false), 2000);
+    });
   };
 
   return (
-    <section className="relative bg-gradient-to-br from-black via-gray-950 to-black border-t border-white/10">
-      <div className="container mx-auto px-4 sm:px-5 md:px-6 max-w-3xl py-8 sm:py-10 md:py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          viewport={{ once: true }}
-          className="text-center space-y-3 sm:space-y-4"
-        >
-          {/* Heading */}
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-[0.15em] leading-tight">
-            Stay Ahead of{" "}
-            <span className="bg-gradient-to-r from-zinc-300 via-white to-zinc-200 bg-clip-text text-transparent">
-              Luxury
+    <section className="relative bg-[#F6F5F1] text-[#0D0D0D] border-t border-[#0D0D0D]/[0.12] py-20 sm:py-24 px-4 sm:px-6 lg:px-8">
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+        viewport={{ once: true }}
+        className="max-w-[1380px] mx-auto"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+          {/* Left Copy */}
+          <div className="lg:col-span-6 space-y-3">
+            <span className="font-mono-tech text-[10px] tracking-[0.34em] uppercase text-[#64625C] block">
+              06 // The Private List
             </span>
-          </h2>
-          <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-xl mx-auto">
-            Get VIP access to exclusive drops, limited editions, and members-only offers.
-          </p>
+            <h2 className="font-display text-3xl sm:text-4xl md:text-5xl font-semibold tracking-[-0.02em] text-[#0D0D0D]">
+              Enter The <span className="italic font-normal">Inner Circle</span>
+            </h2>
+            <p className="font-body text-xs sm:text-sm text-[#64625C] leading-relaxed max-w-md">
+              Receive 24-hour early access to numbered drops, private archive sales, and members-only atelier editions.
+            </p>
+          </div>
 
-          {/* Subscription Form */}
-          <form
-            onSubmit={handleSubmit}
-            className="relative flex items-center w-full max-w-md mx-auto mt-4 sm:mt-5"
-          >
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              className="w-full px-4 sm:px-5 py-2.5 sm:py-3 bg-white/5 text-white border border-white/10 rounded-lg outline-none focus:border-white/30 focus:bg-white/10 transition-all duration-300 placeholder-zinc-500 text-left tracking-wide text-xs sm:text-sm"
-              required
-            />
-            <button
-              type="submit"
-              className="absolute right-1.5 sm:right-2 bg-white text-black px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-1.5 sm:gap-2 font-bold uppercase tracking-wider text-xs"
-            >
-              <Send className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="hidden sm:inline">Subscribe</span>
-            </button>
-          </form>
+          {/* Right Form / Confirmation */}
+          <div className="lg:col-span-6">
+            {joined ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-6 bg-[#FFFFFF] border border-[#0D0D0D]/[0.15] rounded-none flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-[#0D0D0D] font-mono-tech text-xs font-semibold uppercase tracking-[0.16em]">
+                    <Check className="w-4 h-4" />
+                    <span>Confirmed on The Private List</span>
+                  </div>
+                  <p className="font-body text-xs text-[#64625C]">
+                    Apply your welcome privilege at checkout:
+                  </p>
+                </div>
 
-          <p className="text-xs text-zinc-500 tracking-wide mt-2 sm:mt-3">
-            No spam, only premium updates. Unsubscribe anytime.
-          </p>
-        </motion.div>
-      </div>
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-none bg-[#0D0D0D] text-[#F4F2ED] border border-[#0D0D0D] hover:bg-transparent hover:text-[#0D0D0D] font-mono-tech text-xs font-semibold tracking-[0.22em] uppercase transition-colors flex-shrink-0"
+                >
+                  <span>VOID20</span>
+                  {copied ? (
+                    <Check className="w-3.5 h-3.5" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </motion.div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="flex flex-col sm:flex-row items-stretch">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email address"
+                    className="input-atelier flex-1 px-5 py-4 rounded-none text-xs sm:text-sm font-body"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="bg-[#0D0D0D] text-[#F4F2ED] px-7 sm:px-9 py-4 rounded-none border border-[#0D0D0D] hover:bg-[#262626] transition-colors flex items-center justify-center gap-2 font-mono-tech font-semibold uppercase tracking-[0.22em] text-[11px] disabled:opacity-50"
+                  >
+                    {submitting ? (
+                      <span className="w-4 h-4 border-2 border-[#F4F2ED]/30 border-t-[#F4F2ED] rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <span>Join List</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <p className="font-mono-tech text-[9px] text-[#64625C] tracking-[0.22em] uppercase">
+                  Zero Noise • Drop Alerts Only • Unsubscribe Anytime
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      </motion.div>
     </section>
   );
 }

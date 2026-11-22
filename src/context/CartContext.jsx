@@ -1,89 +1,164 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from "react";
 
-// Create the CartContext
 const CartContext = createContext();
 
-// Custom hook to use the CartContext
 export const useCart = () => useContext(CartContext);
 
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const isHydrated = useRef(false);
 
-  // Load cart from localStorage on initial render
+  // Load cart safely from localStorage on initial render
   useEffect(() => {
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
+    try {
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
+        const parsed = JSON.parse(storedCart);
+        if (Array.isArray(parsed)) {
+          setCart(parsed);
+        }
+      }
+    } catch (error) {
+      console.error("[CART] Failed to parse stored cart:", error);
+    } finally {
+      isHydrated.current = true;
     }
   }, []);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage only after hydration
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
+    if (!isHydrated.current) return;
+    try {
+      localStorage.setItem("cart", JSON.stringify(cart));
+    } catch (error) {
+      console.error("[CART] Failed to persist cart:", error);
+    }
   }, [cart]);
 
-  const addToCart = (product) => {
+  // Global keyboard shortcut Cmd/Ctrl + K for Search
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsCartOpen(false);
+        setIsSearchOpen((prev) => !prev);
+      } else if (e.key === "Escape") {
+        setIsCartOpen(false);
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const openCart = useCallback(() => {
+    setIsSearchOpen(false);
+    setIsCartOpen(true);
+  }, []);
+
+  const closeCart = useCallback(() => setIsCartOpen(false), []);
+  const toggleCart = useCallback(() => {
+    setIsSearchOpen(false);
+    setIsCartOpen((prev) => !prev);
+  }, []);
+
+  const openSearch = useCallback(() => {
+    setIsCartOpen(false);
+    setIsSearchOpen(true);
+  }, []);
+
+  const closeSearch = useCallback(() => setIsSearchOpen(false), []);
+
+  const addToCart = useCallback((product, options = { openDrawer: true }) => {
+    const qtyToAdd = Number(product.quantity) || 1;
     setCart((prevCart) => {
-      // Create unique identifier combining variantId, size, and color
       const uniqueId = `${product.variantId}-${product.size}-${product.color}`;
-      const existingItem = prevCart.find((item) => {
-        const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
-        return itemUniqueId === uniqueId;
-      });
-      
+      const existingItem = prevCart.find(
+        (item) => `${item.variantId}-${item.size}-${item.color}` === uniqueId
+      );
+
       if (existingItem) {
+        const maxStock = product.stock || existingItem.stock || 999;
         return prevCart.map((item) => {
           const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
-          return itemUniqueId === uniqueId
-            ? { ...item, quantity: item.quantity + product.quantity }
-            : item;
+          if (itemUniqueId !== uniqueId) return item;
+          const nextQty = Math.min(item.quantity + qtyToAdd, maxStock);
+          return { ...item, quantity: nextQty, stock: maxStock };
         });
-      } else {
-        return [...prevCart, { ...product, quantity: product.quantity || 1 }];
       }
+      return [...prevCart, { ...product, quantity: qtyToAdd }];
     });
-  };
-  
-  const removeFromCart = (variantId, size, color) => {
+
+    if (options?.openDrawer !== false) {
+      setIsSearchOpen(false);
+      setIsCartOpen(true);
+    }
+  }, []);
+
+  const removeFromCart = useCallback((variantId, size, color) => {
     setCart((prevCart) => {
-      // If size and color provided, remove specific variant
       if (size && color) {
-        return prevCart.filter((item) => {
-          const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
-          const targetUniqueId = `${variantId}-${size}-${color}`;
-          return itemUniqueId !== targetUniqueId;
-        });
+        const targetUniqueId = `${variantId}-${size}-${color}`;
+        return prevCart.filter(
+          (item) => `${item.variantId}-${item.size}-${item.color}` !== targetUniqueId
+        );
       }
-      // Otherwise remove by variantId only (backward compatibility)
       return prevCart.filter((item) => item.variantId !== variantId);
     });
-  };
-  
-  const updateQuantity = (variantId, newQuantity, size, color) => {
+  }, []);
+
+  const updateQuantity = useCallback((variantId, newQuantity, size, color) => {
+    if (newQuantity <= 0) {
+      removeFromCart(variantId, size, color);
+      return;
+    }
     setCart((prevCart) =>
       prevCart.map((item) => {
-        // If size and color provided, match specific variant
         if (size && color) {
           const itemUniqueId = `${item.variantId}-${item.size}-${item.color}`;
           const targetUniqueId = `${variantId}-${size}-${color}`;
           return itemUniqueId === targetUniqueId ? { ...item, quantity: newQuantity } : item;
         }
-        // Otherwise match by variantId only (backward compatibility)
         return item.variantId === variantId ? { ...item, quantity: newQuantity } : item;
       })
     );
-  };
-  
+  }, [removeFromCart]);
+
+  const clearCart = useCallback(() => {
+    setCart([]);
+  }, []);
+
+  const cartCount = useMemo(
+    () => cart.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0),
+    [cart]
+  );
+
+  const cartSubtotal = useMemo(
+    () => cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0),
+    [cart]
+  );
 
   return (
     <CartContext.Provider
       value={{
         cart,
+        cartCount,
+        cartSubtotal,
+        isCartOpen,
+        openCart,
+        closeCart,
+        toggleCart,
+        isSearchOpen,
+        openSearch,
+        closeSearch,
         addToCart,
         removeFromCart,
         updateQuantity,
+        clearCart,
       }}
     >
       {children}

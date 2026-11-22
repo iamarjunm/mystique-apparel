@@ -1,35 +1,302 @@
-/* src/Styles/globals.css */
-
-/* Import Fette Gotisch font from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Fette+Gotisch&display=swap');
+/* src/Styles/globals.css — Mystique Apparel: Noir Atelier x Studio Gallery */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
-  --font-main: "Fette Gotisch", serif; /* Use the Fette Gotisch font here */
+  --noir: #0A0A0A;
+  --noir-elevated: #141414;
+  --alabaster: #F6F5F1;
+  --stone-frame: #EAE8E2;
+  --stone-deep: #DDDAD1;
+  --ink: #0D0D0D;
+  --ink-muted: #64625C;
+  --bone: #F4F2ED;
+  --ash: #8E8B84;
+  --hairline-light: rgba(13, 13, 13, 0.11);
+  --hairline-dark: rgba(244, 242, 237, 0.13);
+  --font-sans: var(--font-body), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: var(--font-display), 'Playfair Display', Georgia, serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-main: var(--font-main); /* Apply the Fette Gotisch font */
+/* ===== BASE RESETS ===== */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #000000;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  background: var(--alabaster);
+  color: var(--ink);
 }
 
 body {
-  background: linear-gradient(to bottom right, #000000, #111827, #000000);
-  color: var(--foreground);
-  font-family: var(--font-main), serif; /* Apply Fette Gotisch globally */
+  background: var(--alabaster);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+/* ===== ARCHITECTURAL SCROLLBAR ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--alabaster);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(13, 13, 13, 0.22);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(13, 13, 13, 0.5);
+}
+
+/* ===== SELECTION ===== */
+::selection {
+  background: #0D0D0D;
+  color: #F6F5F1;
+}
+
+/* ===== KEYFRAMES ===== */
+@keyframes marquee-scroll {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes skeleton-stone {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ===== UTILITIES ===== */
+.animate-fade-in-up {
+  animation: fade-in-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 34s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+.animate-marquee-slow {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 48s linear infinite;
+}
+
+.animate-marquee-slow:hover {
+  animation-play-state: paused;
+}
+
+/* Studio Stone Skeleton */
+.skeleton-shimmer {
+  background: linear-gradient(
+    110deg,
+    #EAE8E2 25%,
+    #F2F0EB 50%,
+    #EAE8E2 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-stone 1.6s ease-in-out infinite;
+}
+
+.skeleton-noir {
+  background: linear-gradient(
+    110deg,
+    #121212 25%,
+    #1B1B1B 50%,
+    #121212 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-stone 1.6s ease-in-out infinite;
+}
+
+/* Editorial Film Grain (Subtle, monochrome) */
+.noise-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+}
+
+/* Crisp Architectural Surfaces */
+.surface-gallery {
+  background: #FFFFFF;
+  border: 1px solid rgba(13, 13, 13, 0.1);
+}
+
+.surface-stone {
+  background: #EAE8E2;
+  border: 1px solid rgba(13, 13, 13, 0.08);
+}
+
+.surface-noir {
+  background: #111111;
+  border: 1px solid rgba(244, 242, 237, 0.12);
+}
+
+/* Backward-compatible matte panel utility (zero neon glass) */
+.glass-panel {
+  background: #FFFFFF;
+  border: 1px solid rgba(13, 13, 13, 0.11);
+}
+
+.glass-panel-dark {
+  background: #111111;
+  border: 1px solid rgba(244, 242, 237, 0.13);
+}
+
+/* Hairline Dividers */
+.hairline-light {
+  height: 1px;
+  background: rgba(13, 13, 13, 0.11);
+}
+
+.hairline-dark {
+  height: 1px;
+  background: rgba(244, 242, 237, 0.13);
+}
+
+.section-divider {
+  height: 1px;
+  background: rgba(13, 13, 13, 0.1);
+}
+
+.accent-line {
+  height: 1px;
+  background: rgba(13, 13, 13, 0.25);
+}
+
+/* Crisp Fashion Inputs */
+.input-atelier {
+  background: #FFFFFF;
+  border: 1px solid rgba(13, 13, 13, 0.16);
+  color: #0D0D0D;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.input-atelier::placeholder {
+  color: rgba(13, 13, 13, 0.38);
+}
+
+.input-atelier:focus {
+  outline: none;
+  border-color: #0D0D0D;
+}
+
+.input-noir {
+  background: rgba(244, 242, 237, 0.04);
+  border: 1px solid rgba(244, 242, 237, 0.18);
+  color: #F4F2ED;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.input-noir::placeholder {
+  color: rgba(244, 242, 237, 0.4);
+}
+
+.input-noir:focus {
+  outline: none;
+  border-color: #F4F2ED;
+  background: rgba(244, 242, 237, 0.07);
+}
+
+/* Range Slider (Monochrome Ink) */
+input[type="range"].atelier-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(13, 13, 13, 0.15);
+  height: 2px;
+  outline: none;
+}
+
+input[type="range"].atelier-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #0D0D0D;
+  border: 2px solid #F6F5F1;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+input[type="range"].atelier-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Hide Scrollbar */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Font Utilities */
+.font-display {
+  font-family: var(--font-serif);
+}
+
+.font-body {
+  font-family: var(--font-sans);
+}
+
+.font-mono-tech {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Editorial Toastify Override (Matte Ink Card, Zero Rounded Pill Clutter) */
+.Toastify__toast-container {
+  z-index: 9999 !important;
+}
+
+.Toastify__toast {
+  background: #0D0D0D !important;
+  border: 1px solid rgba(244, 242, 237, 0.14) !important;
+  border-radius: 2px !important;
+  color: #F4F2ED !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.04em !important;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28) !important;
+}
+
+.Toastify__progress-bar {
+  background: #F4F2ED !important;
+  height: 2px !important;
+}
+
+.Toastify__close-button {
+  color: rgba(244, 242, 237, 0.55) !important;
 }

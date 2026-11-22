@@ -1,37 +1,39 @@
 "use client";
 
 import React from "react";
-import { FiUser, FiMapPin, FiPackage, FiLock, FiLogOut } from "react-icons/fi";
+import { User, MapPin, Package, Lock, LogOut } from "lucide-react";
 
 const Sidebar = ({ activeSection, setActiveSection, handleLogout }) => {
   const menuItems = [
-    { id: "profile", label: "Profile", icon: FiUser },
-    { id: "address", label: "Addresses", icon: FiMapPin },
-    { id: "orders", label: "Orders", icon: FiPackage },
-    { id: "password", label: "Password", icon: FiLock },
+    { id: "profile", label: "Profile", icon: User },
+    { id: "address", label: "Addresses", icon: MapPin },
+    { id: "orders", label: "Orders", icon: Package },
+    { id: "password", label: "Password", icon: Lock },
   ];
 
   return (
-    <div className="w-full lg:w-56 lg:sticky lg:top-24 lg:self-start flex-shrink-0">
-      <div className="bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-xl p-5">
-        <h2 className="text-sm font-bold text-zinc-100 mb-5 uppercase tracking-[0.15em] pb-4 border-b border-white/10">
-          Menu
+    <div className="w-full lg:w-60 lg:sticky lg:top-28 lg:self-start flex-shrink-0">
+      <div className="bg-white border border-[#0D0D0D]/12 rounded-[2px] p-5">
+        <h2 className="font-mono-tech text-[10px] font-semibold text-[#64625C] mb-4 uppercase tracking-[0.26em] pb-3.5 border-b border-[#0D0D0D]/10">
+          Navigation
         </h2>
-        <ul className="space-y-1.5">
+        <ul className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
+            const active = activeSection === item.id;
             return (
               <li key={item.id}>
                 <button
+                  type="button"
                   onClick={() => setActiveSection(item.id)}
-                  className={`w-full text-left px-3 py-3 rounded-lg transition-all duration-300 flex items-center gap-2.5 group ${
-                    activeSection === item.id
-                      ? "bg-white text-black shadow-lg shadow-white/20"
-                      : "text-zinc-300 hover:bg-white/5 hover:text-white border border-transparent hover:border-white/10"
+                  className={`w-full text-left px-3.5 py-3 rounded-[2px] transition-colors flex items-center gap-3 ${
+                    active
+                      ? "bg-[#0D0D0D] text-[#F6F5F1]"
+                      : "text-[#64625C] hover:bg-[#EAE8E2] hover:text-[#0D0D0D]"
                   }`}
                 >
-                  <Icon className={`text-base ${activeSection === item.id ? "text-black" : "text-zinc-400 group-hover:text-white"}`} />
-                  <span className={`font-bold text-[10px] uppercase tracking-wider ${activeSection === item.id ? "text-black" : ""}`}>
+                  <Icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="font-mono-tech text-[10px] font-semibold uppercase tracking-[0.2em]">
                     {item.label}
                   </span>
                 </button>
@@ -39,13 +41,16 @@ const Sidebar = ({ activeSection, setActiveSection, handleLogout }) => {
             );
           })}
         </ul>
-        <div className="mt-5 pt-5 border-t border-white/10">
+        <div className="mt-4 pt-4 border-t border-[#0D0D0D]/10">
           <button
+            type="button"
             onClick={handleLogout}
-            className="w-full text-left px-3 py-3 rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-300 flex items-center gap-2.5 border border-transparent hover:border-red-500/20 group"
+            className="w-full text-left px-3.5 py-3 rounded-[2px] text-[#991B1B] hover:bg-[#991B1B]/6 transition-colors flex items-center gap-3"
           >
-            <FiLogOut className="text-base group-hover:rotate-180 transition-transform duration-500" />
-            <span className="font-bold text-[10px] uppercase tracking-wider">Logout</span>
+            <LogOut className="w-4 h-4 flex-shrink-0" />
+            <span className="font-mono-tech text-[10px] font-semibold uppercase tracking-[0.2em]">
+              Sign Out
+            </span>
           </button>
         </div>
       </div>

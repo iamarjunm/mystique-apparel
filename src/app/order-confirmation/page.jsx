@@ -1,295 +1,328 @@
 "use client";
+
 import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle, AlertCircle, Truck, CreditCard, Package, Download } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Truck,
+  CreditCard,
+  Package,
+  Download,
+  ArrowRight,
+} from "lucide-react";
 import Link from "next/link";
+import { useCart } from "@/context/CartContext";
+import formatCurrency from "@/lib/formatCurrency";
+import { toast } from "react-toastify";
 
-// Loading component
 const LoadingSpinner = () => (
-  <div className="min-h-screen bg-black text-white flex items-center justify-center">
+  <div className="min-h-[80vh] bg-[#F6F5F1] text-[#0D0D0D] flex items-center justify-center px-4">
     <div className="text-center space-y-4">
-      <Loader2 className="h-12 w-12 animate-spin mx-auto text-blue-400" />
-      <h1 className="text-2xl font-bold">Loading your order details</h1>
-      <p className="text-gray-400">Please wait while we fetch your order</p>
+      <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#0D0D0D]" />
+      <h1 className="font-display italic text-2xl">Retrieving Your Dossier</h1>
+      <p className="font-body text-xs text-[#64625C]">
+        Fetching your confirmed order details...
+      </p>
     </div>
   </div>
 );
 
-// Error component
 const ErrorDisplay = ({ error, onRetry }) => (
-  <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
-    <div className="max-w-md text-center space-y-6">
-      <div className="space-y-2">
-        <AlertCircle className="h-12 w-12 text-red-400 mx-auto" />
-        <h1 className="text-2xl font-bold">Order Not Found</h1>
-        <p className="text-gray-400">{error}</p>
+  <div className="min-h-[80vh] bg-[#F6F5F1] text-[#0D0D0D] flex items-center justify-center p-4">
+    <div className="max-w-md w-full bg-white border border-[#0D0D0D]/12 rounded-[2px] p-10 text-center space-y-6">
+      <AlertCircle className="h-10 w-10 text-[#991B1B] mx-auto" />
+      <div>
+        <h1 className="font-display italic text-3xl text-[#0D0D0D] mb-2">
+          Order Not Found
+        </h1>
+        <p className="font-body text-sm text-[#64625C]">{error}</p>
       </div>
-      <div className="flex justify-center gap-4">
+      <div className="flex justify-center gap-3">
         <button
+          type="button"
           onClick={onRetry}
-          className="bg-white text-black px-6 py-3 rounded-lg font-medium hover:bg-gray-200 transition"
+          className="bg-[#0D0D0D] text-[#F6F5F1] px-6 py-3 rounded-[2px] font-body text-[11px] font-semibold tracking-[0.2em] uppercase hover:bg-[#262626] transition-colors"
         >
           Try Again
         </button>
-        <Link 
-          href="/" 
-          className="bg-gray-800 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-700 transition"
+        <Link
+          href="/"
+          className="px-6 py-3 rounded-[2px] border border-[#0D0D0D]/25 text-[#0D0D0D] hover:border-[#0D0D0D] font-body text-[11px] font-semibold tracking-[0.2em] uppercase transition-colors"
         >
-          Return to Home
+          Return Home
         </Link>
       </div>
     </div>
   </div>
 );
 
-// Main order content component
 const OrderContent = ({ orderDetails }) => {
-    const [downloadingPDF, setDownloadingPDF] = useState(false);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
 
-    const downloadInvoice = async () => {
-      try {
-        setDownloadingPDF(true);
-        const response = await fetch(`/api/generate-invoice?orderId=${orderDetails.orderNumber}`);
-      
-        if (!response.ok) {
-          throw new Error('Failed to generate invoice');
-        }
+  const downloadInvoice = async () => {
+    try {
+      setDownloadingPDF(true);
+      const response = await fetch(
+        `/api/generate-invoice?orderId=${orderDetails.orderNumber}`
+      );
+      if (!response.ok) throw new Error("Failed to generate invoice");
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Invoice-${orderDetails.orderNumber}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error('Failed to download invoice:', error);
-        alert('Failed to download invoice. Please try again or contact support.');
-      } finally {
-        setDownloadingPDF(false);
-      }
-    };
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice-${orderDetails.orderNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Invoice downloaded");
+    } catch (error) {
+      console.error("Failed to download invoice:", error);
+      toast.error("Failed to download invoice. Please try again.");
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
 
   const formatDate = (dateString) => {
-    if (!dateString) return "Date not available";
+    if (!dateString) return "Recently placed";
     try {
       return new Date(dateString).toLocaleString("en-IN", {
         day: "numeric",
         month: "long",
         year: "numeric",
         hour: "2-digit",
-        minute: "2-digit"
+        minute: "2-digit",
       });
     } catch {
-      return "Date not available";
+      return "Recently placed";
     }
   };
 
-  const requiresShipping = orderDetails?.shippingMethod && 
-                         orderDetails.shippingMethod.toLowerCase() !== "no shipping";
+  const requiresShipping =
+    orderDetails?.shippingMethod &&
+    orderDetails.shippingMethod.toLowerCase() !== "no shipping";
 
   return (
-    <div className="min-h-screen bg-black text-white py-12 px-4 sm:px-6">
+    <div className="min-h-screen bg-[#F6F5F1] text-[#0D0D0D] py-14 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
-        {/* Confirmation Header */}
-        <div className="text-center mb-12">
-          <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-4xl font-extrabold mb-3">Order Confirmed!</h1>
-          <p className="text-xl text-gray-400">
-            Your order #{orderDetails?.orderNumber} has been received
+        {/* Hero Confirmation Banner */}
+        <div className="bg-white border border-[#0D0D0D]/12 rounded-[2px] p-8 sm:p-12 text-center mb-8">
+          <div className="w-14 h-14 rounded-[2px] bg-[#1A5D3A]/10 border border-[#1A5D3A]/25 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2 className="h-7 w-7 text-[#1A5D3A]" />
+          </div>
+          <span className="font-mono-tech text-[10px] tracking-[0.32em] uppercase text-[#1A5D3A] block mb-2.5">
+            Order Confirmed // #{orderDetails?.orderNumber}
+          </span>
+          <h1 className="font-display italic text-4xl sm:text-5xl font-semibold text-[#0D0D0D] mb-3 tracking-[-0.015em]">
+            Thank You For Your Order
+          </h1>
+          <p className="font-body text-sm text-[#64625C] max-w-lg mx-auto leading-relaxed">
+            Your Mystique pieces are being prepared and hand-inspected at our atelier. A confirmation receipt has been dispatched to your email.
           </p>
-          
-                  {/* Download Invoice Button */}
-                  <div className="mt-6">
-                    <button
-                      onClick={downloadInvoice}
-                      disabled={downloadingPDF}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {downloadingPDF ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          Generating Invoice...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="h-5 w-5" />
-                          Download Invoice
-                        </>
-                      )}
-                    </button>
-                  </div>
+
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={downloadInvoice}
+              disabled={downloadingPDF}
+              className="inline-flex items-center gap-2 bg-[#0D0D0D] text-[#F6F5F1] px-7 py-3.5 rounded-[2px] font-body text-[11px] font-semibold tracking-[0.22em] uppercase hover:bg-[#262626] transition-colors disabled:opacity-50"
+            >
+              {downloadingPDF ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating Invoice...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  <span>Download Invoice PDF</span>
+                </>
+              )}
+            </button>
+            <Link
+              href="/shop"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-[2px] border border-[#0D0D0D]/25 text-[#0D0D0D] hover:border-[#0D0D0D] font-body text-[11px] font-semibold tracking-[0.22em] uppercase transition-colors"
+            >
+              <span>Continue Exploring</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
-        {/* Order Summary Cards */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Order Details Card */}
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              Order Details
+        {/* Details Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white border border-[#0D0D0D]/12 rounded-[2px] p-6 sm:p-7 space-y-4">
+            <h2 className="font-display italic text-2xl text-[#0D0D0D] flex items-center gap-2.5 pb-3.5 border-b border-[#0D0D0D]/10">
+              <CreditCard className="h-4 w-4 text-[#0D0D0D]" />
+              <span>Order Dossier</span>
             </h2>
-            <div className="space-y-3">
+            <div className="space-y-3 text-xs sm:text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Order Number</span>
-                <span className="font-mono">#{orderDetails?.orderNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Date</span>
-                <span>{formatDate(orderDetails?.createdAt)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Payment Status</span>
-                <span className="capitalize">
-                  {orderDetails?.paymentStatus?.replace(/_/g, ' ').toLowerCase()}
+                <span className="text-[#64625C]">Reference</span>
+                <span className="font-mono-tech text-[#0D0D0D]">
+                  #{orderDetails?.orderNumber}
                 </span>
               </div>
-              
-              {/* Price Breakdown */}
-              <div className="pt-2 border-t border-gray-800 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Subtotal</span>
-                  <span>₹{orderDetails?.subtotal?.toFixed(2)}</span>
+              <div className="flex justify-between">
+                <span className="text-[#64625C]">Placed</span>
+                <span className="text-[#0D0D0D]">
+                  {formatDate(orderDetails?.createdAt)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#64625C]">Status</span>
+                <span className="capitalize text-[#1A5D3A] font-medium">
+                  {orderDetails?.paymentStatus?.replace(/_/g, " ").toLowerCase() ||
+                    "Confirmed"}
+                </span>
+              </div>
+
+              <div className="pt-3 border-t border-[#0D0D0D]/10 space-y-2">
+                <div className="flex justify-between text-[#64625C]">
+                  <span>Subtotal</span>
+                  <span className="text-[#0D0D0D]">
+                    {formatCurrency(orderDetails?.subtotal || 0)}
+                  </span>
                 </div>
-                {orderDetails?.shippingCost > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Shipping</span>
-                    <span>₹{orderDetails?.shippingCost?.toFixed(2)}</span>
-                  </div>
-                )}
-                {!orderDetails?.shippingCost && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Shipping</span>
-                    <span className="text-green-400">FREE</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-[#64625C]">
+                  <span>Shipping</span>
+                  <span className={!orderDetails?.shippingCost ? "text-[#1A5D3A] font-medium" : "text-[#0D0D0D]"}>
+                    {orderDetails?.shippingCost > 0
+                      ? formatCurrency(orderDetails.shippingCost)
+                      : "FREE"}
+                  </span>
+                </div>
                 {orderDetails?.discountAmount > 0 && (
-                  <div className="flex justify-between text-sm text-green-400">
-                    <span>Discount{orderDetails?.discountCode ? ` (${orderDetails.discountCode})` : ''}</span>
-                    <span>-₹{orderDetails?.discountAmount?.toFixed(2)}</span>
+                  <div className="flex justify-between text-[#1A5D3A]">
+                    <span>
+                      Discount
+                      {orderDetails?.discountCode ? ` (${orderDetails.discountCode})` : ""}
+                    </span>
+                    <span>-{formatCurrency(orderDetails.discountAmount)}</span>
                   </div>
                 )}
               </div>
-              
-              <div className="flex justify-between pt-3 border-t border-gray-700 mt-3">
-                <span className="text-gray-400">Total Amount</span>
-                <span className="font-bold text-lg">₹{orderDetails?.total?.toFixed(2)}</span>
+
+              <div className="flex justify-between items-baseline pt-3.5 border-t border-[#0D0D0D]/12">
+                <span className="font-mono-tech text-[10px] tracking-[0.2em] uppercase text-[#64625C]">
+                  Total Paid
+                </span>
+                <span className="font-display text-2xl font-semibold text-[#0D0D0D]">
+                  {formatCurrency(orderDetails?.total || 0)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Shipping/Delivery Card */}
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              {requiresShipping ? <Truck className="h-5 w-5" /> : <Package className="h-5 w-5" />}
-              {requiresShipping ? "Shipping Info" : "Delivery Info"}
+          <div className="bg-white border border-[#0D0D0D]/12 rounded-[2px] p-6 sm:p-7 space-y-4">
+            <h2 className="font-display italic text-2xl text-[#0D0D0D] flex items-center gap-2.5 pb-3.5 border-b border-[#0D0D0D]/10">
+              {requiresShipping ? (
+                <Truck className="h-4 w-4 text-[#0D0D0D]" />
+              ) : (
+                <Package className="h-4 w-4 text-[#0D0D0D]" />
+              )}
+              <span>{requiresShipping ? "Dispatch & Delivery" : "Delivery Info"}</span>
             </h2>
-            
+
             {requiresShipping ? (
-              <div className="space-y-4">
+              <div className="space-y-3 text-xs sm:text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-400">Method</span>
-                  <span>{orderDetails?.shippingMethod}</span>
+                  <span className="text-[#64625C]">Method</span>
+                  <span className="text-[#0D0D0D] font-medium">{orderDetails?.shippingMethod}</span>
                 </div>
-                
                 {orderDetails?.trackingInfo ? (
                   <>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Tracking Number</span>
-                      <a 
-                        href={orderDetails.trackingInfo.trackingUrl || '#'} 
-                        target="_blank" 
+                      <span className="text-[#64625C]">Tracking</span>
+                      <a
+                        href={orderDetails.trackingInfo.trackingUrl || "#"}
+                        target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-400 hover:underline"
+                        className="text-[#0D0D0D] underline underline-offset-4 font-mono-tech"
                       >
                         {orderDetails.trackingInfo.trackingId}
                       </a>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-400">Status</span>
-                      <span className="capitalize">{orderDetails.trackingInfo.status}</span>
+                      <span className="text-[#64625C]">Shipment Status</span>
+                      <span className="capitalize text-[#0D0D0D] font-medium">
+                        {orderDetails.trackingInfo.status}
+                      </span>
                     </div>
                   </>
                 ) : (
-                  <div className="py-2 text-gray-400">
-                    Your shipping details will be updated soon
-                  </div>
+                  <p className="text-[#64625C] text-xs leading-relaxed pt-2">
+                    Your tracking number will be emailed to you as soon as your parcel leaves our atelier (1–2 business days).
+                  </p>
                 )}
               </div>
             ) : (
-              <div className="space-y-2">
-                <div className="text-gray-400">This is a digital order</div>
-                <div className="pt-2 text-sm text-gray-500">
-                  You'll receive access details via email
-                </div>
-              </div>
+              <p className="text-[#64625C] text-xs leading-relaxed">
+                Dispatch details will be sent directly to your registered email address.
+              </p>
             )}
           </div>
         </div>
 
-        {/* Order Items */}
+        {/* Items */}
         {orderDetails?.items?.length > 0 && (
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 mb-8">
-            <h2 className="text-xl font-bold mb-4">Your Items</h2>
-            <div className="divide-y divide-gray-800">
-              {orderDetails.items.map((item) => (
-                <div key={item.id} className="py-4 flex items-center">
-                  <div className="bg-gray-800 rounded-md w-16 h-16 flex-shrink-0 mr-4 overflow-hidden">
+          <div className="bg-white border border-[#0D0D0D]/12 rounded-[2px] p-6 sm:p-7 mb-8">
+            <h2 className="font-display italic text-2xl text-[#0D0D0D] pb-4 border-b border-[#0D0D0D]/10">
+              Pieces In Your Order
+            </h2>
+            <div className="divide-y divide-[#0D0D0D]/10">
+              {orderDetails.items.map((item, idx) => (
+                <div key={item.id || idx} className="py-4 flex items-center gap-4">
+                  <div className="bg-[#EAE8E2] border border-[#0D0D0D]/10 rounded-[2px] w-16 h-20 flex-shrink-0 overflow-hidden">
                     {item.image ? (
-                      <img 
-                        src={item.image} 
-                        alt={item.name} 
+                      <img
+                        src={item.image}
+                        alt={item.name}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = "/placeholder-product.jpg";
-                        }}
                       />
                     ) : (
-                      <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                        <Package className="h-6 w-6 text-gray-500" />
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="h-5 w-5 text-[#64625C]" />
                       </div>
                     )}
                   </div>
-                  <div className="flex-grow">
-                    <h3 className="font-medium">{item.name}</h3>
-                    <p className="text-sm text-gray-400">
+                  <div className="flex-grow min-w-0">
+                    <h3 className="font-body text-sm font-medium text-[#0D0D0D] truncate">
+                      {item.name}
+                    </h3>
+                    <p className="font-mono-tech text-[11px] text-[#64625C] mt-1">
                       {item.variant && `${item.variant} • `}Qty: {item.quantity}
                     </p>
                   </div>
-                  <div className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</div>
+                  <div className="font-body text-sm font-semibold text-[#0D0D0D]">
+                    {formatCurrency((item.price || 0) * (item.quantity || 1))}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Customer Support Note */}
-        <div className="bg-blue-900/20 rounded-xl p-6 border border-blue-800/50 mb-8">
-          <h2 className="text-xl font-bold mb-2">Need Help?</h2>
-          <p className="text-gray-400 mb-4">
-            If you have any questions about your order, please contact our support team.
-          </p>
-          <Link 
-            href="/contact" 
-            className="inline-flex items-center text-blue-400 hover:text-blue-300 transition"
+        {/* Concierge Support Strip */}
+        <div className="bg-[#EAE8E2] border border-[#0D0D0D]/12 rounded-[2px] p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <p className="font-display italic text-xl text-[#0D0D0D]">
+              Need Concierge Assistance?
+            </p>
+            <p className="font-body text-xs text-[#64625C] mt-0.5">
+              Our atelier support team is ready to help with sizing, address updates, or tracking.
+            </p>
+          </div>
+          <Link
+            href="/contact"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-[2px] border border-[#0D0D0D]/25 text-[#0D0D0D] hover:bg-[#0D0D0D] hover:text-[#F6F5F1] font-mono-tech text-[10px] tracking-[0.22em] uppercase transition-colors whitespace-nowrap"
           >
-            Contact Support
-            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
-
-        {/* Continue Shopping Button */}
-        <div className="text-center">
-          <Link 
-            href="/" 
-            className="bg-white text-black px-8 py-3 rounded-lg font-medium inline-block hover:bg-gray-200 transition"
-          >
-            Continue Shopping
+            <span>Contact Atelier</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>
@@ -297,50 +330,35 @@ const OrderContent = ({ orderDetails }) => {
   );
 };
 
-// Main page component with Suspense boundary
-const OrderConfirmationPage = () => {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <OrderConfirmationContent />
-    </Suspense>
-  );
-};
-
-// Inner component that uses useSearchParams
 const OrderConfirmationContent = () => {
   const searchParams = useSearchParams();
+  const { clearCart } = useCart();
   const [orderDetails, setOrderDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const fetchOrderDetails = async (orderId) => {
-    try {
-      const response = await fetch(`/api/orders/${orderId}`);
-      if (!response.ok) throw new Error("Failed to fetch order");
-      return await response.json();
-    } catch (err) {
-      throw err;
-    }
+    const response = await fetch(`/api/orders/${orderId}`);
+    if (!response.ok) throw new Error("Could not locate this order reference.");
+    return response.json();
   };
 
   useEffect(() => {
     const loadOrder = async () => {
       try {
         const orderId = searchParams.get("orderId");
-        if (!orderId) throw new Error("Missing order ID");
-        
+        if (!orderId) throw new Error("Missing order reference.");
         const data = await fetchOrderDetails(orderId);
         setOrderDetails(data);
+        clearCart();
       } catch (err) {
-        console.error("Error:", err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
     loadOrder();
-  }, [searchParams]);
+  }, [searchParams, clearCart]);
 
   const handleRetry = () => {
     setLoading(true);
@@ -349,16 +367,23 @@ const OrderConfirmationContent = () => {
     if (orderId) {
       fetchOrderDetails(orderId)
         .then(setOrderDetails)
-        .catch(err => setError(err.message))
+        .catch((err) => setError(err.message))
         .finally(() => setLoading(false));
     }
   };
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorDisplay error={error} onRetry={handleRetry} />;
-  if (!orderDetails) return <ErrorDisplay error="No order data found" onRetry={handleRetry} />;
+  if (!orderDetails)
+    return <ErrorDisplay error="No order details found." onRetry={handleRetry} />;
 
   return <OrderContent orderDetails={orderDetails} />;
 };
 
-export default OrderConfirmationPage;
+export default function OrderConfirmationPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <OrderConfirmationContent />
+    </Suspense>
+  );
+}

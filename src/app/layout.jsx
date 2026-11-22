@@ -1,25 +1,59 @@
+import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import AnnouncementBar from "@/components/AnnouncementBar";
 import Footer from "@/components/Footer";
+import CartDrawer from "@/components/CartDrawer";
+import SearchModal from "@/components/SearchModal";
+import AmbientExperience from "@/components/AmbientExperience";
 import "@/Styles/globals.css";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { CartProvider } from "@/context/CartContext";
 import { UserProvider } from "@/context/UserContext";
 import { AuthProvider } from "@/context/AuthContext";
-import { ToastContainer } from "react-toastify"; // Import ToastContainer
-import "react-toastify/dist/ReactToastify.css"; // Import the CSS for react-toastify
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata = {
   metadataBase: new URL("https://mystiqueapparel.in"),
   title: {
-    template: "%s | Mystique Apparel",
-    default: "Mystique Apparel | Premium Streetwear & Dark Fashion",
+    template: "%s — Mystique Apparel",
+    default: "Mystique Apparel — Architectural Heavyweight Streetwear",
   },
-  description: "Discover premium streetwear and dark fashion at Mystique Apparel. Bold style, high-quality fabrics, and unique designs born in India.",
-  keywords: ["streetwear", "dark fashion", "premium apparel", "mystique apparel", "india streetwear", "clothing brand", "oversized t-shirts"],
+  description:
+    "Heavyweight 240 GSM combed cotton silhouettes. Architectural drop-shoulder proportions. Small-batch luxury streetwear born in India.",
+  keywords: [
+    "luxury streetwear india",
+    "mystique apparel",
+    "240 gsm oversized t-shirts",
+    "heavyweight hoodies",
+    "architectural streetwear",
+  ],
   openGraph: {
-    title: "Mystique Apparel | Premium Streetwear",
-    description: "Discover premium streetwear and dark fashion at Mystique Apparel. Bold style, high-quality fabrics, and unique designs.",
+    title: "Mystique Apparel — Architectural Heavyweight Streetwear",
+    description:
+      "Heavyweight 240 GSM silhouettes crafted in small batches in India.",
     url: "https://mystiqueapparel.in",
     siteName: "Mystique Apparel",
     images: [
@@ -27,16 +61,16 @@ export const metadata = {
         url: "/tshirt.jpg",
         width: 1200,
         height: 630,
-        alt: "Mystique Apparel Logo",
-      }
+        alt: "Mystique Apparel",
+      },
     ],
     locale: "en_IN",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mystique Apparel | Premium Streetwear",
-    description: "Discover premium streetwear and dark fashion at Mystique Apparel.",
+    title: "Mystique Apparel — Architectural Heavyweight Streetwear",
+    description: "Heavyweight 240 GSM silhouettes crafted in small batches.",
     images: ["/tshirt.jpg"],
   },
   robots: {
@@ -62,9 +96,7 @@ export default function RootLayout({ children }) {
         name: "Mystique Apparel",
         url: "https://mystiqueapparel.in",
         logo: "https://mystiqueapparel.in/tshirt.jpg",
-        sameAs: [
-          "https://www.instagram.com/mystique_.apparel/"
-        ]
+        sameAs: ["https://www.instagram.com/mystique_.apparel/"],
       },
       {
         "@type": "WebSite",
@@ -72,48 +104,50 @@ export default function RootLayout({ children }) {
         url: "https://mystiqueapparel.in",
         name: "Mystique Apparel",
         publisher: {
-          "@id": "https://mystiqueapparel.in/#organization"
+          "@id": "https://mystiqueapparel.in/#organization",
         },
         potentialAction: {
           "@type": "SearchAction",
           target: "https://mystiqueapparel.in/shop?q={search_term_string}",
-          "query-input": "required name=search_term_string"
-        }
-      }
-    ]
+          "query-input": "required name=search_term_string",
+        },
+      },
+    ],
   };
 
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${playfair.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+    >
       <head>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="antialiased bg-primary-bg text-primary-text dark:bg-primary-bg dark:text-primary-text flex flex-col min-h-screen">
+      <body className="antialiased bg-[#F6F5F1] text-[#0D0D0D] font-body flex flex-col min-h-screen">
         <AuthProvider>
           <UserProvider>
             <WishlistProvider>
               <CartProvider>
+                <AmbientExperience />
                 <div className="fixed top-0 left-0 right-0 z-50 flex flex-col">
                   <AnnouncementBar />
                   <Navbar />
                 </div>
-                <main className="flex-grow pt-24">{children}</main>
+                <main className="flex-grow pt-[96px]">{children}</main>
                 <Footer />
-                {/* Add ToastContainer here */}
+                <CartDrawer />
+                <SearchModal />
                 <ToastContainer
-                  position="top-right"
-                  autoClose={3000}
+                  position="bottom-right"
+                  autoClose={2600}
                   hideProgressBar={false}
-                  newestOnTop={false}
+                  newestOnTop
                   closeOnClick
-                  rtl={false}
-                  pauseOnFocusLoss
-                  draggable
                   pauseOnHover
-                  theme="colored"
+                  theme="dark"
                 />
               </CartProvider>
             </WishlistProvider>

@@ -1,35 +1,44 @@
 import React from "react";
+import { User } from "lucide-react";
 
 const UserInformationForm = ({ formData, handleChange, user }) => {
   return (
-    <div className="bg-gradient-to-br from-gray-900/60 to-black p-3 sm:p-4 md:p-5 rounded-xl border border-gray-700/50 backdrop-blur shadow-xl">
-      <h2 className="text-base sm:text-lg md:text-xl font-bold mb-3 sm:mb-4 text-white">👤 Contact Information</h2>
-      <div className="space-y-2.5 sm:space-y-3.5">
-        {/* Full Name */}
+    <div className="bg-white border border-[#0D0D0D]/12 p-5 sm:p-6 rounded-[2px] space-y-4">
+      <div className="flex items-center gap-2.5 border-b border-[#0D0D0D]/10 pb-4">
+        <User className="w-4 h-4 text-[#0D0D0D]" />
+        <h2 className="font-display italic text-xl sm:text-2xl text-[#0D0D0D]">
+          Contact Information
+        </h2>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs sm:text-sm font-semibold mb-1.5 text-gray-300">Full Name *</label>
+          <label className="block font-mono-tech text-[10px] tracking-[0.22em] uppercase text-[#64625C] mb-2">
+            Full Name *
+          </label>
           <input
             type="text"
             name="fullName"
-            placeholder="John Doe"
+            placeholder="Your full name"
             value={formData.fullName}
             onChange={handleChange}
-            className="w-full p-2 sm:p-2.5 rounded-lg bg-gray-800/50 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
+            className="input-atelier w-full px-4 py-3 rounded-[2px] text-sm read-only:bg-[#EAE8E2]/60 read-only:text-[#64625C]"
             required
             readOnly={!!user && !!formData.fullName}
           />
         </div>
 
-        {/* Email */}
         <div>
-          <label className="block text-xs sm:text-sm font-semibold mb-1.5 text-gray-300">Email Address *</label>
+          <label className="block font-mono-tech text-[10px] tracking-[0.22em] uppercase text-[#64625C] mb-2">
+            Email Address *
+          </label>
           <input
             type="email"
             name="email"
-            placeholder="john@example.com"
+            placeholder="you@domain.com"
             value={formData.email}
             onChange={handleChange}
-            className="w-full p-2 sm:p-2.5 rounded-lg bg-gray-800/50 text-white border border-gray-700 focus:outline-none focus:border-gray-500 focus:bg-gray-800 transition-all text-xs sm:text-sm"
+            className="input-atelier w-full px-4 py-3 rounded-[2px] text-sm read-only:bg-[#EAE8E2]/60 read-only:text-[#64625C]"
             required
             readOnly={!!user && !!formData.email}
           />

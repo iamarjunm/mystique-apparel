@@ -114,9 +114,13 @@ export async function POST(req) {
       return sum + itemPrice * itemQty;
     }, 0);
 
-    const shippingCost = Number(shippingOption?.price) || 0;
+    const rawShippingPrice =
+      typeof shippingOption?.price === "string"
+        ? parseFloat(shippingOption.price.replace(/[^\d.]/g, ""))
+        : Number(shippingOption?.price);
+    const shippingCost = Number.isFinite(rawShippingPrice) ? rawShippingPrice : 0;
     const discountAmount = Number(discount?.amount) || 0;
-    const finalTotal = subtotal + shippingCost - discountAmount;
+    const finalTotal = Math.max(0, subtotal + shippingCost - discountAmount);
 
     console.log("💰 [CREATE ORDER] Pricing breakdown:", {
       subtotal,
