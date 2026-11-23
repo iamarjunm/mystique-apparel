@@ -1,336 +1,385 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { client } from '@/sanity'
-import { Copy, X } from 'lucide-react'
-import { createGameDiscount } from '@/lib/promoOfferFactory'
+"use client";
 
-const ScratchCardGame = ({ onClose, allowReplay = true, recordGamePlay = () => {} }) => {
-  const canvasRef = useRef(null)
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [isScratching, setIsScratching] = useState(true)
-  const [gameResult, setGameResult] = useState(null)
-  const [discountCode, setDiscountCode] = useState(null)
-  const [copied, setCopied] = useState(false)
-  const [scratchPercentage, setScratchPercentage] = useState(0)
-  const [gameCompleted, setGameCompleted] = useState(false)
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { client } from "@/sanity";
+import { createGameDiscount } from "@/lib/promoOfferFactory";
+import {
+  AtelierGameShell,
+  AtelierRewardTicket,
+} from "@/components/games/AtelierGameShell";
 
-  const scratchRewards = [
-    { tier: 'low', emoji: '🎀' },
-    { tier: 'low', emoji: '⭐' },
-    { tier: 'standard', emoji: '💫' },
-    { tier: 'standard', emoji: '🌈' },
-    { tier: 'high', emoji: '👑' },
-    { tier: 'high', emoji: '🏆' },
-  ]
+const TIER_POOL = ["low", "low", "standard", "standard", "high", "high"];
+const REVEAL_THRESHOLD = 40;
 
-  const [selectedReward, setSelectedReward] = useState(
-    scratchRewards[Math.floor(Math.random() * scratchRewards.length)]
-  )
+function pickRandomTier() {
+  return TIER_POOL[Math.floor(Math.random() * TIER_POOL.length)];
+}
 
-  const drawScratchLayer = () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+function generateDiscountCode() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "SCRATCH";
+  for (let i = 0; i < 5; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
-    const ctx = canvas.getContext('2d')
-    const { width, height } = canvas
+const ScratchCardGame = ({
+  onClose,
+  allowReplay = true,
+  recordGamePlay = () => {},
+}) => {
+  const canvasRef = useRef(null);
+  const isDrawingRef = useRef(false);
+  const lastPointRef = useRef(null);
+  const hasRevealedRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const timerRef = useRef(null);
 
-    // base cover
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.fillStyle = '#111111'
-    ctx.fillRect(0, 0, width, height)
+  const [selectedTier, setSelectedTier] = useState(() => pickRandomTier());
+  const [scratchPercentage, setScratchPercentage] = useState(0);
+  const [isUnveiling, setIsUnveiling] = useState(false);
+  const [gameResult, setGameResult] = useState(null);
+  const [gameCompleted, setGameCompleted] = useState(false);
 
-    // metallic sheen
-    const gradient = ctx.createLinearGradient(0, 0, width, height)
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.24)')
-    gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.08)')
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0.18)')
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, width, height)
+  const drawFoilSurface = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    // diagonal lines for texture
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)'
-    ctx.lineWidth = 1
-    for (let i = -height; i < width; i += 12) {
-      ctx.beginPath()
-      ctx.moveTo(i, 0)
-      ctx.lineTo(i + height, height)
-      ctx.stroke()
+    const width = canvas.offsetWidth || 420;
+    const height = canvas.offsetHeight || 220;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.globalCompositeOperation = "source-over";
+
+    // Brushed titanium / silver metallic sheen (#1D1D1F -> #36363A)
+    const sheen = ctx.createLinearGradient(0, 0, width, height);
+    sheen.addColorStop(0, "#1D1D1F");
+    sheen.addColorStop(0.28, "#2C2C30");
+    sheen.addColorStop(0.5, "#36363A");
+    sheen.addColorStop(0.75, "#252529");
+    sheen.addColorStop(1, "#1D1D1F");
+    ctx.fillStyle = sheen;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle horizontal brushed micro-lines
+    ctx.strokeStyle = "rgba(244, 242, 237, 0.03)";
+    ctx.lineWidth = 1;
+    for (let y = 0; y < height; y += 3) {
+      ctx.beginPath();
+      ctx.moveTo(0, y + 0.5);
+      ctx.lineTo(width, y + 0.5);
+      ctx.stroke();
     }
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)'
-    ctx.font = 'bold 18px Arial'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText('Scratch to Reveal Offer', width / 2, height / 2)
-  }
+    // Fine diagonal engraved architectural lines
+    ctx.strokeStyle = "rgba(244, 242, 237, 0.065)";
+    ctx.lineWidth = 1;
+    for (let x = -height; x < width + height; x += 14) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + height, height);
+      ctx.stroke();
+    }
+
+    // Inner engraved frame border
+    ctx.strokeStyle = "rgba(244, 242, 237, 0.22)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(12.5, 12.5, width - 25, height - 25);
+
+    // Corner registration accents
+    const mark = 10;
+    ctx.strokeStyle = "rgba(244, 242, 237, 0.55)";
+    ctx.beginPath();
+    ctx.moveTo(12.5, 12.5 + mark);
+    ctx.lineTo(12.5, 12.5);
+    ctx.lineTo(12.5 + mark, 12.5);
+
+    ctx.moveTo(width - 12.5 - mark, 12.5);
+    ctx.lineTo(width - 12.5, 12.5);
+    ctx.lineTo(width - 12.5, 12.5 + mark);
+
+    ctx.moveTo(12.5, height - 12.5 - mark);
+    ctx.lineTo(12.5, height - 12.5);
+    ctx.lineTo(12.5 + mark, height - 12.5);
+
+    ctx.moveTo(width - 12.5 - mark, height - 12.5);
+    ctx.lineTo(width - 12.5, height - 12.5);
+    ctx.lineTo(width - 12.5, height - 12.5 - mark);
+    ctx.stroke();
+
+    // Centered monospace engraving
+    ctx.fillStyle = "rgba(244, 242, 237, 0.88)";
+    ctx.font = '600 12px "JetBrains Mono", ui-monospace, SFMono-Regular, monospace';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("S C R A T C H   T O   U N V E I L", width / 2, height / 2 - 8);
+
+    ctx.fillStyle = "rgba(244, 242, 237, 0.45)";
+    ctx.font = '400 9px "JetBrains Mono", ui-monospace, SFMono-Regular, monospace';
+    ctx.fillText("TI-02 // BRUSHED FOIL SEAL", width / 2, height / 2 + 14);
+  }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    isMountedRef.current = true;
+    const frame = requestAnimationFrame(() => {
+      drawFoilSurface();
+    });
+    return () => {
+      isMountedRef.current = false;
+      cancelAnimationFrame(frame);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [drawFoilSurface]);
 
-    const ctx = canvas.getContext('2d')
-    canvas.width = canvas.offsetWidth
-    canvas.height = canvas.offsetHeight
+  const revealResult = useCallback(async () => {
+    if (hasRevealedRef.current) return;
+    hasRevealedRef.current = true;
 
-    drawScratchLayer()
-  }, [])
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
+    setIsUnveiling(true);
+    setScratchPercentage(100);
+    setGameCompleted(true);
+    recordGamePlay();
 
-  const generateDiscountCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let code = 'SCRATCH'
-    for (let i = 0; i < 5; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return code
-  }
-
-  const getPoint = (e) => {
-    const canvas = canvasRef.current
-    const rect = canvas.getBoundingClientRect()
-    const point = e.touches?.[0] || e
-    return {
-      x: point.clientX - rect.left,
-      y: point.clientY - rect.top,
-    }
-  }
-
-  const scratchAt = (x, y) => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.beginPath()
-    ctx.arc(x, y, 18, 0, Math.PI * 2)
-    ctx.fill()
-
-    // add softer edge
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.beginPath()
-    ctx.arc(x, y, 26, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(0,0,0,0.45)'
-    ctx.fill()
-    ctx.fillStyle = '#000'
-  }
-
-  const calculateScratchPercentage = () => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-    const data = imageData.data
-    let scratched = 0
-
-    for (let i = 3; i < data.length; i += 4) {
-      if (data[i] === 0) scratched++
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
     }
 
-    const percentage = (scratched / (data.length / 4)) * 100
-    setScratchPercentage(percentage)
-
-    if (percentage > 40) {
-      revealResult()
-    }
-  }
-
-  const handlePointerDown = (e) => {
-    if (!isScratching) return
-    setIsDrawing(true)
-    const { x, y } = getPoint(e)
-    scratchAt(x, y)
-    calculateScratchPercentage()
-  }
-
-  const handlePointerMove = (e) => {
-    if (!isScratching || !isDrawing) return
-    const { x, y } = getPoint(e)
-    scratchAt(x, y)
-    calculateScratchPercentage()
-  }
-
-  const handlePointerUp = () => {
-    setIsDrawing(false)
-  }
-
-  const revealResult = async () => {
-    setIsScratching(false)
-    setGameCompleted(true)
-    recordGamePlay() // Record that game was actually played
-    
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-    const newCode = generateDiscountCode()
+    const newCode = generateDiscountCode();
+    let offerLabel = "Private Archive Privilege";
 
     try {
       const offer = await createGameDiscount(client, {
         code: newCode,
-        gameName: 'Scratch Card',
-        tier: selectedReward.tier,
-      })
-
-      setTimeout(() => {
-        setGameResult({
-          icon: selectedReward.emoji,
-          code: newCode,
-          offerLabel: offer.label,
-        })
-        setDiscountCode(newCode)
-      }, 500)
-      return
+        gameName: "Silver Foil Plate",
+        tier: selectedTier,
+      });
+      if (offer?.label) {
+        offerLabel = offer.label;
+      }
     } catch (error) {
-      console.error('Error creating discount:', error)
+      console.error("Error creating discount:", error);
     }
 
-    setTimeout(() => {
+    timerRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
       setGameResult({
-        icon: selectedReward.emoji,
         code: newCode,
-        offerLabel: 'Special Offer Unlocked',
-      })
-      setDiscountCode(newCode)
-    }, 500)
-  }
+        offerLabel,
+      });
+      setIsUnveiling(false);
+    }, 450);
+  }, [recordGamePlay, selectedTier]);
 
-  const handleCopy = async () => {
-    if (discountCode) {
-      await navigator.clipboard.writeText(discountCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+  const getPoint = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / (rect.width || 1);
+    const scaleY = canvas.height / (rect.height || 1);
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX;
+    const clientY = e.touches?.[0]?.clientY ?? e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const eraseStroke = (from, to) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(0, 0, 0, 1)";
+    ctx.lineWidth = 38;
+
+    ctx.beginPath();
+    if (from) {
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    } else {
+      ctx.arc(to.x, to.y, 19, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0, 0, 0, 1)";
+      ctx.fill();
     }
-  }
+  };
+
+  const evaluateScratchProgress = () => {
+    if (hasRevealedRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let sampled = 0;
+    let cleared = 0;
+
+    // Sample every 4th pixel for responsive 60fps etching
+    for (let i = 3; i < data.length; i += 16) {
+      sampled++;
+      if (data[i] < 128) cleared++;
+    }
+
+    const pct = sampled > 0 ? (cleared / sampled) * 100 : 0;
+    setScratchPercentage(pct);
+
+    if (pct >= REVEAL_THRESHOLD) {
+      revealResult();
+    }
+  };
+
+  const handlePointerDown = (e) => {
+    if (hasRevealedRef.current) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const point = getPoint(e);
+    if (!point) return;
+
+    isDrawingRef.current = true;
+    lastPointRef.current = point;
+    eraseStroke(null, point);
+    evaluateScratchProgress();
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDrawingRef.current || hasRevealedRef.current) return;
+    const point = getPoint(e);
+    if (!point) return;
+
+    eraseStroke(lastPointRef.current, point);
+    lastPointRef.current = point;
+    evaluateScratchProgress();
+  };
+
+  const handlePointerUp = () => {
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
+  };
 
   const handlePlayAgain = () => {
-    setGameResult(null)
-    setDiscountCode(null)
-    setGameCompleted(false)
-    setIsScratching(true)
-    setIsDrawing(false)
-    setScratchPercentage(0)
-    setSelectedReward(scratchRewards[Math.floor(Math.random() * scratchRewards.length)])
+    if (timerRef.current) clearTimeout(timerRef.current);
+    hasRevealedRef.current = false;
+    isDrawingRef.current = false;
+    lastPointRef.current = null;
+    setGameResult(null);
+    setIsUnveiling(false);
+    setScratchPercentage(0);
+    setSelectedTier(pickRandomTier());
+
     requestAnimationFrame(() => {
-      const canvas = canvasRef.current
-      if (!canvas) return
-      const ctx = canvas.getContext('2d')
-      canvas.width = canvas.offsetWidth
-      canvas.height = canvas.offsetHeight
-      drawScratchLayer()
-      ctx.globalCompositeOperation = 'source-over'
-    })
-  }
+      drawFoilSurface();
+    });
+  };
 
-  if (gameResult) {
-    return (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="relative bg-gradient-to-br from-gray-900 to-black rounded-2xl p-4 sm:p-6 md:p-8 max-w-md w-full border border-white/20 shadow-2xl">
-          <button
-            onClick={() => {
-              onClose(gameCompleted)
-            }}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/10 rounded-lg transition"
-          >
-            <X size={18} className="text-white sm:w-5 sm:h-5" />
-          </button>
-
-          <div className="text-center space-y-4 sm:space-y-6">
-            <div className="text-6xl sm:text-7xl animate-bounce">{gameResult.icon}</div>
-            <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white">
-                Congratulations!
-              </h2>
-              <p className="text-sm text-gray-400 mt-2">You've unlocked a special offer</p>
-            </div>
-            <p className="text-lg text-gray-200">{gameResult.offerLabel}</p>
-
-            <div className="bg-black/50 rounded-lg p-4 border border-white/10">
-              <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Your Discount Code</p>
-              <code className="text-2xl sm:text-3xl font-mono font-bold tracking-[0.1em] text-white bg-black/80 p-3 rounded-lg block mb-3">
-                {gameResult.code}
-              </code>
-            </div>
-
-            <button
-              onClick={handleCopy}
-              className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-3 sm:py-3.5 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-            >
-              <Copy size={18} />
-              {copied ? 'Copied to Clipboard!' : 'Copy Code'}
-            </button>
-
-            {allowReplay && (
-              <button
-                onClick={handlePlayAgain}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-3 sm:py-3.5 rounded-lg transition-all duration-300"
-              >
-                Try Your Luck Again
-              </button>
-            )}
-
-            <p className="text-xs text-gray-400 pt-2">Use this code at checkout to get your discount</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const progressWidth = Math.min(100, Math.round((scratchPercentage / REVEAL_THRESHOLD) * 100));
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="relative bg-gradient-to-br from-gray-900 to-black rounded-2xl p-4 sm:p-6 md:p-8 max-w-md w-full border border-white/20 shadow-2xl">
-        <button
-          onClick={() => {
-            onClose(gameCompleted)
-          }}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/10 rounded-lg transition z-20"
-        >
-          <X size={18} className="text-white sm:w-5 sm:h-5" />
-        </button>
+    <AtelierGameShell
+      codeLabel="02 // FOIL PLATE"
+      title="Silver Foil Plate"
+      subtitle="Etch across the brushed titanium seal to unveil your archival privilege."
+      onClose={() => onClose(gameCompleted)}
+    >
+      {gameResult ? (
+        <AtelierRewardTicket
+          code={gameResult.code}
+          offerLabel={gameResult.offerLabel}
+          gameName="Silver Foil Plate"
+          metaNote="FOIL PLATE // AUTHENTICATED"
+          allowReplay={allowReplay}
+          onPlayAgain={handlePlayAgain}
+          onClose={() => onClose(gameCompleted)}
+        />
+      ) : (
+        <div className="space-y-6">
+          {/* Plate Frame */}
+          <div className="relative bg-[#121212] border border-white/[0.16] rounded-none overflow-hidden select-none">
+            {/* Underlying Archival Plate */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center pointer-events-none">
+              <div
+                className="absolute inset-0 opacity-[0.06]"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(#F4F2ED 1px, transparent 1px), linear-gradient(90deg, #F4F2ED 1px, transparent 1px)",
+                  backgroundSize: "18px 18px",
+                }}
+              />
+              <span className="font-mono-tech text-[9px] tracking-[0.34em] uppercase text-[#8E8B84] mb-2 relative z-10">
+                MYSTIQUE ARCHIVE
+              </span>
+              <span className="font-display italic text-2xl sm:text-3xl text-[#F4F2ED] relative z-10">
+                {isUnveiling ? "Decrypting Code..." : "Privilege Sealed"}
+              </span>
+              <span className="font-mono-tech text-[10px] tracking-[0.26em] uppercase text-[#8E8B84] mt-2 relative z-10">
+                SINGLE-USE RELEASE PASS
+              </span>
+            </div>
 
-        <div className="text-center space-y-4 sm:space-y-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">Scratch & Win</h1>
-            <p className="text-gray-400 text-sm mt-1">Scratch to reveal an exclusive offer</p>
-          </div>
-
-          <div className="relative bg-gradient-to-b from-gray-800 to-gray-900 rounded-xl p-1">
+            {/* Interactive Brushed Titanium Canvas */}
             <canvas
               ref={canvasRef}
-              onMouseDown={handlePointerDown}
-              onMouseMove={handlePointerMove}
-              onMouseUp={handlePointerUp}
-              onMouseLeave={handlePointerUp}
-              onTouchStart={handlePointerDown}
-              onTouchMove={handlePointerMove}
-              onTouchEnd={handlePointerUp}
-              className="w-full h-60 rounded-lg cursor-crosshair bg-zinc-900 touch-none border border-white/5"
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              className="relative z-10 block w-full h-56 sm:h-60 cursor-crosshair touch-none"
             />
-            <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-5xl mb-2 animate-pulse">{selectedReward.emoji}</div>
-                <div className="text-xs font-semibold text-gray-400">MYSTERY</div>
-              </div>
-            </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs text-gray-400">
-              <span>Scratch Progress</span>
-              <span className="font-semibold">{Math.round(scratchPercentage)}%</span>
+          {/* 2px Monochrome Hairline Progress */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between font-mono-tech text-[10px] tracking-[0.24em] uppercase text-[#8E8B84]">
+              <span>
+                {isUnveiling ? "UNVEILING PRIVILEGE" : "ETCH PROGRESS"}
+              </span>
+              <span className="text-[#F4F2ED]">
+                {Math.min(100, Math.round(scratchPercentage))}%
+              </span>
             </div>
-            <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden border border-white/10">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-200"
-                style={{ width: `${Math.min(scratchPercentage, 100)}%` }}
+            <div className="w-full h-[2px] bg-white/10 overflow-hidden">
+              <div
+                className="h-full bg-[#F4F2ED] transition-all duration-150 ease-out"
+                style={{ width: `${isUnveiling ? 100 : progressWidth}%` }}
               />
             </div>
           </div>
 
-          <p className="text-gray-400 text-sm">
-            {scratchPercentage < 40
-              ? 'Keep scratching to reveal your offer...'
-              : 'Revealing your reward...'}
-          </p>
+          {/* Footer Guidance + Accessible Instant Reveal */}
+          <div className="flex items-center justify-between gap-4 pt-1 border-t border-white/[0.1]">
+            <span className="font-body text-xs text-[#8E8B84]">
+              {isUnveiling
+                ? "Issuing personal archive code..."
+                : "Drag across the brushed titanium surface to reveal."}
+            </span>
+            <button
+              type="button"
+              onClick={revealResult}
+              disabled={isUnveiling}
+              className="font-mono-tech text-[10px] tracking-[0.22em] uppercase text-[#F4F2ED]/75 hover:text-[#F4F2ED] underline underline-offset-4 transition-colors flex-shrink-0 disabled:opacity-40"
+            >
+              Instant Reveal
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
-  )
-}
+      )}
+    </AtelierGameShell>
+  );
+};
 
-export default ScratchCardGame
+export default ScratchCardGame;

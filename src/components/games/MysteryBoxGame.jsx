@@ -1,203 +1,250 @@
-import React, { useState } from 'react'
-import { client } from '@/sanity'
-import { Copy, X } from 'lucide-react'
-import { createGameDiscount } from '@/lib/promoOfferFactory'
+"use client";
 
-const MysteryBoxGame = ({ onClose, allowReplay = true, recordGamePlay = () => {} }) => {
-  const [selectedBox, setSelectedBox] = useState(null)
-  const [isRevealing, setIsRevealing] = useState(false)
-  const [revealedBoxes, setRevealedBoxes] = useState(new Set())
-  const [gameResult, setGameResult] = useState(null)
-  const [gameCompleted, setGameCompleted] = useState(false)
-  const [discountCode, setDiscountCode] = useState(null)
-  const [copied, setCopied] = useState(false)
+import React, { useEffect, useRef, useState } from "react";
+import { client } from "@/sanity";
+import { createGameDiscount } from "@/lib/promoOfferFactory";
+import {
+  AtelierGameShell,
+  AtelierRewardTicket,
+} from "@/components/games/AtelierGameShell";
 
-  const rewards = [
-    { discount: 5, icon: '🎁' },
-    { discount: 6, icon: '💫' },
-    { discount: 7, icon: '✨' },
-    { discount: 8, icon: '🌟' },
-    { discount: 10, icon: '💎' },
-    { discount: 12, icon: '👑' },
-    { discount: 8, icon: '🎀' },
-    { discount: 9, icon: '🎊' },
-    { discount: 11, icon: '🎉' },
-  ]
+const BASE_TIERS = [
+  "low",
+  "low",
+  "low",
+  "standard",
+  "standard",
+  "standard",
+  "high",
+  "high",
+  "high",
+];
 
-  const generateDiscountCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let code = 'MYSTIQUE'
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return code
+function createShuffledCoffers() {
+  const tiers = [...BASE_TIERS];
+  for (let i = tiers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tiers[i], tiers[j]] = [tiers[j], tiers[i]];
   }
-
-  const handleBoxClick = async (index) => {
-    if (revealedBoxes.has(index) || isRevealing) return
-
-    setSelectedBox(index)
-    setIsRevealing(true)
-    setGameCompleted(true)
-    recordGamePlay() // Record that game was actually played
-
-    const reward = rewards[index]
-    const newCode = generateDiscountCode()
-
-    // Create discount in Sanity
-    try {
-      const tier = reward.discount >= 11 ? 'high' : reward.discount >= 8 ? 'standard' : 'low'
-      const offer = await createGameDiscount(client, {
-        code: newCode,
-        gameName: 'Mystery Box',
-        tier,
-      })
-
-      // Simulate reveal animation
-      setTimeout(() => {
-        setRevealedBoxes((prev) => new Set([...prev, index]))
-        setGameResult({
-          icon: reward.icon,
-          code: newCode,
-          offerLabel: offer.label,
-        })
-        setDiscountCode(newCode)
-        setIsRevealing(false)
-      }, 1000)
-      return
-    } catch (error) {
-      console.error('Error creating discount:', error)
-    }
-
-    // Simulate reveal animation
-    setTimeout(() => {
-      setRevealedBoxes((prev) => new Set([...prev, index]))
-      setGameResult({
-        icon: reward.icon,
-        code: newCode,
-        offerLabel: 'Special Offer Unlocked',
-      })
-      setDiscountCode(newCode)
-      setIsRevealing(false)
-    }, 1000)
-  }
-
-  const handleCopy = async () => {
-    if (discountCode) {
-      await navigator.clipboard.writeText(discountCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
-  const handlePlayAgain = () => {
-    setGameResult(null)
-    setDiscountCode(null)
-    setSelectedBox(null)
-    setRevealedBoxes(new Set())
-  }
-
-  if (gameResult) {
-    return (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="relative bg-black rounded-2xl p-4 sm:p-6 md:p-8 max-w-md w-full border border-white/20 shadow-2xl">
-          <button
-            onClick={() => onClose(gameCompleted)}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/10 rounded-lg transition"
-          >
-            <X size={18} className="text-white sm:w-5 sm:h-5" />
-          </button>
-
-          <div className="text-center space-y-4 sm:space-y-6">
-            <div className="text-5xl sm:text-6xl animate-bounce">{gameResult.icon}</div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">
-              You Won!
-            </h2>
-            <p className="text-lg text-gray-200">{gameResult.offerLabel}</p>
-
-            <div className="bg-zinc-900 rounded-lg p-4 border border-white/20">
-              <p className="text-xs text-gray-400 mb-2">Your Discount Code</p>
-              <code className="text-3xl font-light tracking-[0.3em] text-white break-all">
-                {gameResult.code}
-              </code>
-            </div>
-
-            <button
-              onClick={handleCopy}
-              className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-            >
-              <Copy size={16} />
-              {copied ? 'Copied!' : 'Copy Code'}
-            </button>
-
-            {allowReplay && (
-              <button
-                onClick={handlePlayAgain}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-              >
-                Play Again
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="relative bg-black rounded-2xl p-4 sm:p-6 md:p-8 max-w-md w-full border border-white/20 shadow-2xl">
-        <button
-          onClick={() => onClose(gameCompleted)}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/10 rounded-lg transition"
-        >
-          <X size={18} className="text-white sm:w-5 sm:h-5" />
-        </button>
-
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-1 sm:mb-2 text-white">
-          Mystery Box
-        </h1>
-        <p className="text-center text-gray-300 text-sm sm:text-base mb-4 sm:mb-6 md:mb-8">Pick a box to reveal your prize!</p>
-
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
-          {rewards.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => handleBoxClick(index)}
-              disabled={revealedBoxes.has(index) || isRevealing}
-              className={`relative h-24 sm:h-28 md:h-32 rounded-lg transition-all duration-500 transform hover:scale-110 ${
-                revealedBoxes.has(index)
-                    ? 'bg-zinc-800 border-2 border-white/40'
-                  : isRevealing && selectedBox === index
-                    ? 'bg-white text-black border-2 border-white scale-105'
-                    : 'bg-zinc-900 border-2 border-white/20 hover:border-white/40 disabled:opacity-50 disabled:cursor-not-allowed'
-              }`}
-            >
-              <div className="flex flex-col items-center justify-center h-full gap-2">
-                {revealedBoxes.has(index) ? (
-                  <>
-                    <span className="text-2xl">✓</span>
-                    <span className="text-xs text-green-200">Opened</span>
-                  </>
-                ) : selectedBox === index && isRevealing ? (
-                  <div className="animate-spin">⚡</div>
-                ) : (
-                  <>
-                    <span className="text-3xl">📦</span>
-                    <span className="text-xs text-gray-200 font-light">{index + 1}</span>
-                  </>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <p className="text-center text-gray-400 text-sm mt-6">
-          {revealedBoxes.size === 0 ? 'Choose your lucky box!' : `${revealedBoxes.size} of 9 opened`}
-        </p>
-      </div>
-    </div>
-  )
+  return tiers.map((tier, idx) => ({
+    index: idx,
+    label: String(idx + 1).padStart(2, "0"),
+    tier,
+  }));
 }
 
-export default MysteryBoxGame
+function generateDiscountCode() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "MYSTIQUE";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+const MysteryBoxGame = ({
+  onClose,
+  allowReplay = true,
+  recordGamePlay = () => {},
+}) => {
+  const [coffers, setCoffers] = useState(() => createShuffledCoffers());
+  const [selectedBox, setSelectedBox] = useState(null);
+  const [isRevealing, setIsRevealing] = useState(false);
+  const [revealedBoxes, setRevealedBoxes] = useState(() => new Set());
+  const [gameResult, setGameResult] = useState(null);
+  const [gameCompleted, setGameCompleted] = useState(false);
+
+  const isMountedRef = useRef(true);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleBoxClick = async (index) => {
+    if (revealedBoxes.has(index) || isRevealing || gameResult) return;
+
+    setSelectedBox(index);
+    setIsRevealing(true);
+    setGameCompleted(true);
+    recordGamePlay();
+
+    const coffer = coffers[index];
+    const newCode = generateDiscountCode();
+    let offerLabel = "Private Archive Privilege";
+
+    try {
+      const offer = await createGameDiscount(client, {
+        code: newCode,
+        gameName: "The Archive Coffers",
+        tier: coffer.tier,
+      });
+      if (offer?.label) {
+        offerLabel = offer.label;
+      }
+    } catch (error) {
+      console.error("Error creating discount:", error);
+    }
+
+    timerRef.current = setTimeout(() => {
+      if (!isMountedRef.current) return;
+      setRevealedBoxes((prev) => new Set([...prev, index]));
+      setGameResult({
+        code: newCode,
+        offerLabel,
+        cofferLabel: coffer.label,
+      });
+      setIsRevealing(false);
+    }, 900);
+  };
+
+  const handlePlayAgain = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setCoffers(createShuffledCoffers());
+    setGameResult(null);
+    setSelectedBox(null);
+    setIsRevealing(false);
+    setRevealedBoxes(new Set());
+  };
+
+  return (
+    <AtelierGameShell
+      codeLabel="01 // ARCHIVE COFFERS"
+      title="The Archive Coffers"
+      subtitle="Select one of nine sealed obsidian crates to unveil your private code."
+      onClose={() => onClose(gameCompleted)}
+    >
+      {gameResult ? (
+        <AtelierRewardTicket
+          code={gameResult.code}
+          offerLabel={gameResult.offerLabel}
+          gameName="The Archive Coffers"
+          metaNote={`COFFER ${gameResult.cofferLabel} // UNSEALED`}
+          allowReplay={allowReplay}
+          onPlayAgain={handlePlayAgain}
+          onClose={() => onClose(gameCompleted)}
+        />
+      ) : (
+        <div className="space-y-6">
+          {/* Status Strip */}
+          <div className="flex items-center justify-between border-b border-white/[0.12] pb-3 font-mono-tech text-[10px] tracking-[0.26em] uppercase text-[#8E8B84]">
+            <span>
+              {isRevealing
+                ? `UNSEALING COFFER ${String((selectedBox ?? 0) + 1).padStart(2, "0")}`
+                : "SELECT ONE SEALED CRATE"}
+            </span>
+            <span>09 UNITS</span>
+          </div>
+
+          {/* 3x3 Obsidian Crate Grid */}
+          <div className="grid grid-cols-3 gap-3">
+            {coffers.map((coffer) => {
+              const isSelected = selectedBox === coffer.index;
+              const isOpened = revealedBoxes.has(coffer.index);
+              const isUnlocking = isSelected && isRevealing;
+
+              return (
+                <button
+                  key={coffer.index}
+                  type="button"
+                  onClick={() => handleBoxClick(coffer.index)}
+                  disabled={isOpened || isRevealing}
+                  className={`group relative h-24 sm:h-28 rounded-none border transition-all duration-300 flex flex-col items-center justify-center overflow-hidden ${
+                    isUnlocking
+                      ? "bg-[#F4F2ED] text-[#0A0A0A] border-[#F4F2ED]"
+                      : isOpened
+                        ? "bg-[#121212] text-[#8E8B84] border-white/[0.12] opacity-50"
+                        : "bg-[#121212] text-[#F4F2ED] border-white/[0.14] hover:bg-[#1A1A1A] hover:border-[#F4F2ED]/70 disabled:opacity-35 disabled:cursor-not-allowed"
+                  }`}
+                >
+                  {/* Corner Crosshairs */}
+                  <span
+                    className={`pointer-events-none absolute top-1.5 left-1.5 w-2 h-2 border-t border-l transition-colors ${
+                      isUnlocking
+                        ? "border-[#0A0A0A]/50"
+                        : "border-white/[0.2] group-hover:border-[#F4F2ED]/70"
+                    }`}
+                  />
+                  <span
+                    className={`pointer-events-none absolute top-1.5 right-1.5 w-2 h-2 border-t border-r transition-colors ${
+                      isUnlocking
+                        ? "border-[#0A0A0A]/50"
+                        : "border-white/[0.2] group-hover:border-[#F4F2ED]/70"
+                    }`}
+                  />
+                  <span
+                    className={`pointer-events-none absolute bottom-1.5 left-1.5 w-2 h-2 border-b border-l transition-colors ${
+                      isUnlocking
+                        ? "border-[#0A0A0A]/50"
+                        : "border-white/[0.2] group-hover:border-[#F4F2ED]/70"
+                    }`}
+                  />
+                  <span
+                    className={`pointer-events-none absolute bottom-1.5 right-1.5 w-2 h-2 border-b border-r transition-colors ${
+                      isUnlocking
+                        ? "border-[#0A0A0A]/50"
+                        : "border-white/[0.2] group-hover:border-[#F4F2ED]/70"
+                    }`}
+                  />
+
+                  {/* Subtle Brushed Texture Diagonal Line */}
+                  <span
+                    className={`pointer-events-none absolute inset-x-4 top-1/2 h-px transition-opacity ${
+                      isUnlocking
+                        ? "bg-[#0A0A0A]/15 opacity-100"
+                        : "bg-white/[0.06] group-hover:bg-[#F4F2ED]/20"
+                    }`}
+                  />
+
+                  {isUnlocking ? (
+                    <div className="relative z-10 flex flex-col items-center gap-2 px-3 w-full">
+                      <span className="font-mono-tech text-lg font-semibold tracking-[0.2em]">
+                        {coffer.label}
+                      </span>
+                      <div className="w-full h-[2px] bg-[#0A0A0A]/20 overflow-hidden">
+                        <div className="h-full w-full bg-[#0A0A0A] animate-pulse" />
+                      </div>
+                      <span className="font-mono-tech text-[8px] tracking-[0.28em] uppercase">
+                        UNSEALING
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="relative z-10 flex flex-col items-center gap-1.5">
+                      <span className="font-mono-tech text-xl sm:text-2xl font-normal tracking-[0.18em] transition-transform duration-300 group-hover:scale-105">
+                        {coffer.label}
+                      </span>
+                      <span className="font-mono-tech text-[8px] tracking-[0.3em] uppercase text-[#8E8B84] group-hover:text-[#F4F2ED] transition-colors">
+                        {isOpened ? "OPENED" : "SEALED"}
+                      </span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Unlocking Progress Bar */}
+          <div className="space-y-2 pt-1">
+            <div className="w-full h-[2px] bg-white/10 overflow-hidden">
+              <div
+                className="h-full bg-[#F4F2ED] transition-all duration-700 ease-out"
+                style={{ width: isRevealing ? "100%" : "0%" }}
+              />
+            </div>
+            <p className="font-mono-tech text-[9px] tracking-[0.24em] uppercase text-[#8E8B84] text-center">
+              {isRevealing
+                ? "VERIFYING ARCHIVAL CREDENTIALS..."
+                : "EACH COFFER CONTAINS A SINGLE-USE PRIVATE CODE"}
+            </p>
+          </div>
+        </div>
+      )}
+    </AtelierGameShell>
+  );
+};
+
+export default MysteryBoxGame;

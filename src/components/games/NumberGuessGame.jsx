@@ -1,237 +1,294 @@
-import React, { useState, useEffect } from 'react'
-import { client } from '@/sanity'
-import { Copy, X } from 'lucide-react'
-import { createGameDiscount } from '@/lib/promoOfferFactory'
+"use client";
 
-const NumberGuessGame = ({ onClose, allowReplay = true, recordGamePlay = () => {} }) => {
-  const MAX_ATTEMPTS = 7
-  const [secretNumber, setSecretNumber] = useState(null)
-  const [guesses, setGuesses] = useState([])
-  const [input, setInput] = useState('')
-  const [gameResult, setGameResult] = useState(null)
-  const [gameOver, setGameOver] = useState(false)
-  const [discountCode, setDiscountCode] = useState(null)
-  const [copied, setCopied] = useState(false)
-  const [hint, setHint] = useState('')
-  const [gameCompleted, setGameCompleted] = useState(false)
+import React, { useRef, useState } from "react";
+import { client } from "@/sanity";
+import { createGameDiscount } from "@/lib/promoOfferFactory";
+import {
+  AtelierGameShell,
+  AtelierRewardTicket,
+  AtelierVaultLocked,
+} from "@/components/games/AtelierGameShell";
 
-  useEffect(() => {
-    setSecretNumber(Math.floor(Math.random() * 100) + 1)
-  }, [])
+const MAX_ATTEMPTS = 7;
 
-  const generateDiscountCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let code = 'GUESS'
-    for (let i = 0; i < 6; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length))
-    }
-    return code
+function createSecretCombination() {
+  return Math.floor(Math.random() * 100) + 1;
+}
+
+function generateDiscountCode() {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let code = "GUESS";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
+  return code;
+}
 
-  const handleGuess = async () => {
-    if (!input || isNaN(input) || gameOver || gameResult) return
+function formatTwoDigits(num) {
+  return String(num).padStart(2, "0");
+}
 
-    setGameCompleted(true)
-    recordGamePlay() // Record that game was actually played
+const NumberGuessGame = ({
+  onClose,
+  allowReplay = true,
+  recordGamePlay = () => {},
+}) => {
+  const [secretNumber, setSecretNumber] = useState(() => createSecretCombination());
+  const [guesses, setGuesses] = useState([]);
+  const [minBound, setMinBound] = useState(1);
+  const [maxBound, setMaxBound] = useState(100);
+  const [input, setInput] = useState("");
+  const [feedback, setFeedback] = useState("ENTER COMBINATION // 01 – 100");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [gameResult, setGameResult] = useState(null);
+  const [gameOver, setGameOver] = useState(false);
+  const [gameCompleted, setGameCompleted] = useState(false);
 
-    const guess = parseInt(input)
-    const newGuesses = [...guesses, guess]
-    setGuesses(newGuesses)
-    setInput('')
+  const hasRecordedRoundRef = useRef(false);
 
-    if (guess === secretNumber) {
-      const newCode = generateDiscountCode()
+  const handleSubmit = async (e) => {
+    e?.preventDefault();
+    if (isSubmitting || gameOver || gameResult) return;
+
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    const parsed = Number.parseInt(trimmed, 10);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+      setFeedback("INVALID ENTRY // USE 01 – 100");
+      return;
+    }
+
+    if (!hasRecordedRoundRef.current) {
+      hasRecordedRoundRef.current = true;
+      setGameCompleted(true);
+      recordGamePlay();
+    }
+
+    const direction =
+      parsed === secretNumber ? "MATCH" : parsed < secretNumber ? "UP" : "DOWN";
+    const nextGuesses = [...guesses, { value: parsed, direction }];
+    setGuesses(nextGuesses);
+    setInput("");
+
+    if (parsed === secretNumber) {
+      setIsSubmitting(true);
+      setFeedback(`MATCH CONFIRMED // ${formatTwoDigits(parsed)}`);
+
+      const newCode = generateDiscountCode();
+      const tier =
+        nextGuesses.length <= 3
+          ? "high"
+          : nextGuesses.length <= 5
+            ? "standard"
+            : "low";
+      let offerLabel = "Private Archive Privilege";
 
       try {
-        const tier = newGuesses.length <= 3 ? 'high' : newGuesses.length <= 5 ? 'standard' : 'low'
         const offer = await createGameDiscount(client, {
           code: newCode,
-          gameName: 'Number Guess',
+          gameName: "The Cipher Lock",
           tier,
-        })
-
-        setGameResult({
-          icon: '🎯',
-          code: newCode,
-          guesses: newGuesses.length,
-          offerLabel: offer.label,
-        })
-        setDiscountCode(newCode)
-        return
+        });
+        if (offer?.label) {
+          offerLabel = offer.label;
+        }
       } catch (error) {
-        console.error('Error creating discount:', error)
+        console.error("Error creating discount:", error);
       }
 
       setGameResult({
-        icon: '🎯',
         code: newCode,
-        guesses: newGuesses.length,
-        offerLabel: 'Special Offer Unlocked',
-      })
-      setDiscountCode(newCode)
-    } else if (guess < secretNumber) {
-      setHint('Higher! 📈')
+        offerLabel,
+        attempts: nextGuesses.length,
+        combination: secretNumber,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (parsed < secretNumber) {
+      setMinBound((prev) => Math.max(prev, Math.min(100, parsed + 1)));
+      setFeedback(`↑ HIGHER — ABOVE ${formatTwoDigits(parsed)}`);
     } else {
-      setHint('Lower! 📉')
+      setMaxBound((prev) => Math.min(prev, Math.max(1, parsed - 1)));
+      setFeedback(`↓ LOWER — BELOW ${formatTwoDigits(parsed)}`);
     }
 
-    if (newGuesses.length >= MAX_ATTEMPTS && guess !== secretNumber) {
-      setGameOver(true)
-      setHint(`Out of attempts! The number was ${secretNumber}`)
+    if (nextGuesses.length >= MAX_ATTEMPTS) {
+      setGameOver(true);
     }
-  }
-
-  const handleCopy = async () => {
-    if (discountCode) {
-      await navigator.clipboard.writeText(discountCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
+  };
 
   const handlePlayAgain = () => {
-    setGameResult(null)
-    setGameOver(false)
-    setDiscountCode(null)
-    setGuesses([])
-    setInput('')
-    setHint('')
-    setSecretNumber(Math.floor(Math.random() * 100) + 1)
-  }
+    hasRecordedRoundRef.current = false;
+    setSecretNumber(createSecretCombination());
+    setGuesses([]);
+    setMinBound(1);
+    setMaxBound(100);
+    setInput("");
+    setFeedback("ENTER COMBINATION // 01 – 100");
+    setIsSubmitting(false);
+    setGameResult(null);
+    setGameOver(false);
+  };
 
-  if (gameOver) {
-    return (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="relative bg-black rounded-2xl p-4 sm:p-6 md:p-8 max-w-md w-full border border-white/20 shadow-2xl">
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/10 rounded-lg transition"
-          >
-            <X size={18} className="text-white sm:w-5 sm:h-5" />
-          </button>
-
-          <div className="text-center space-y-4 sm:space-y-6">
-            <div className="text-5xl sm:text-6xl">😞</div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">
-              Vault Locked!
-            </h2>
-            <p className="text-gray-300">You used all {MAX_ATTEMPTS} attempts.</p>
-            <p className="text-gray-400 text-sm">{hint}</p>
-
-            {allowReplay && (
-              <button
-                onClick={handlePlayAgain}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-              >
-                Try Again
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (gameResult) {
-    return (
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div className="relative bg-black rounded-2xl p-4 sm:p-6 md:p-8 max-w-md w-full border border-white/20 shadow-2xl">
-          <button
-            onClick={() => onClose(gameCompleted)}
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/10 rounded-lg transition"
-          >
-            <X size={18} className="text-white sm:w-5 sm:h-5" />
-          </button>
-
-          <div className="text-center space-y-4 sm:space-y-6">
-            <div className="text-5xl sm:text-6xl animate-bounce">{gameResult.icon}</div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-white">
-              Correct!
-            </h2>
-            <p className="text-lg text-gray-200">{gameResult.offerLabel}</p>
-            <p className="text-gray-300">Guessed in {gameResult.guesses} tries</p>
-
-            <div className="bg-zinc-900 rounded-lg p-4 border border-white/20">
-              <p className="text-xs text-gray-400 mb-2">Your Discount Code</p>
-              <code className="text-3xl font-light tracking-[0.3em] text-white">
-                {gameResult.code}
-              </code>
-            </div>
-
-            <button
-              onClick={handleCopy}
-              className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-            >
-              <Copy size={16} />
-              {copied ? 'Copied!' : 'Copy Code'}
-            </button>
-
-            {allowReplay && (
-              <button
-                onClick={handlePlayAgain}
-                className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-              >
-                Play Again
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const leftPct = ((minBound - 1) / 99) * 100;
+  const rightPct = ((maxBound - 1) / 99) * 100;
+  const spanWidth = Math.max(2, rightPct - leftPct);
+  const midPct = leftPct + spanWidth / 2;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="relative bg-black rounded-2xl p-4 sm:p-6 md:p-8 max-w-sm w-full border border-white/20 shadow-2xl">
-        <button
-          onClick={() => onClose(gameCompleted)}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 hover:bg-white/10 rounded-lg transition"
-        >
-          <X size={18} className="text-white sm:w-5 sm:h-5" />
-        </button>
+    <AtelierGameShell
+      codeLabel="05 // CIPHER LOCK"
+      title="The Cipher Lock"
+      subtitle="Decode the vault combination between 01 and 100 in seven attempts."
+      onClose={() => onClose(gameCompleted)}
+    >
+      {gameResult ? (
+        <AtelierRewardTicket
+          code={gameResult.code}
+          offerLabel={gameResult.offerLabel}
+          gameName="The Cipher Lock"
+          metaNote={`COMBINATION ${formatTwoDigits(gameResult.combination)} // ${gameResult.attempts} ${
+            gameResult.attempts === 1 ? "ATTEMPT" : "ATTEMPTS"
+          }`}
+          allowReplay={allowReplay}
+          onPlayAgain={handlePlayAgain}
+          onClose={() => onClose(gameCompleted)}
+        />
+      ) : gameOver ? (
+        <AtelierVaultLocked
+          title="Cipher Locked"
+          message={`All ${MAX_ATTEMPTS} decryption attempts were exhausted before unlocking the vault.`}
+          detail={`VAULT COMBINATION WAS ${formatTwoDigits(secretNumber)}`}
+          allowReplay={allowReplay}
+          onPlayAgain={handlePlayAgain}
+          onClose={() => onClose(gameCompleted)}
+        />
+      ) : (
+        <div className="space-y-6">
+          {/* Narrowing Range Telemetry Panel */}
+          <div className="bg-[#121212] border border-white/[0.14] p-5 space-y-5">
+            <div className="flex items-center justify-between font-mono-tech text-[10px] tracking-[0.24em] uppercase text-[#8E8B84]">
+              <span>ACTIVE RANGE</span>
+              <span>
+                ATTEMPTS{" "}
+                <strong className="text-[#F4F2ED] font-medium">
+                  {guesses.length}/{MAX_ATTEMPTS}
+                </strong>
+              </span>
+            </div>
 
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-1 sm:mb-2 text-white">
-          Number Guess
-        </h1>
-        <p className="text-center text-gray-300 mb-4">Guess a number between 1-100 in max {MAX_ATTEMPTS} attempts</p>
-
-        <div className="bg-zinc-900 rounded-lg p-6 mb-6 border border-white/20">
-          <p className="text-center text-gray-400 mb-4">Attempts: {guesses.length}/{MAX_ATTEMPTS}</p>
-          <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-            {guesses.map((guess, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-lg p-2 text-center text-black font-bold text-sm"
-              >
-                {guess}
+            {/* Live [ minBound ──●── maxBound ] Meter */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between font-mono-tech text-xs tracking-[0.22em] text-[#F4F2ED]">
+                <span>[ {formatTwoDigits(minBound)}</span>
+                <span className="text-[10px] text-[#8E8B84] tracking-[0.26em]">
+                  LIVE WINDOW
+                </span>
+                <span>{formatTwoDigits(maxBound)} ]</span>
               </div>
-            ))}
+
+              <div className="relative h-5 flex items-center">
+                {/* Full Track */}
+                <div className="w-full h-[2px] bg-white/[0.12]" />
+                {/* Active Narrowed Span */}
+                <div
+                  className="absolute h-[2px] bg-[#F4F2ED] transition-all duration-300 ease-out"
+                  style={{
+                    left: `${leftPct}%`,
+                    width: `${spanWidth}%`,
+                  }}
+                />
+                {/* Left Bracket Tick */}
+                <span
+                  className="absolute w-px h-3 bg-[#F4F2ED] transition-all duration-300 ease-out"
+                  style={{ left: `${leftPct}%` }}
+                />
+                {/* Right Bracket Tick */}
+                <span
+                  className="absolute w-px h-3 bg-[#F4F2ED] transition-all duration-300 ease-out"
+                  style={{ left: `${Math.min(100, rightPct)}%` }}
+                />
+                {/* Center Reticle Dot */}
+                <span
+                  className="absolute w-2 h-2 -ml-1 bg-[#F4F2ED] border border-[#0A0A0A] transition-all duration-300 ease-out"
+                  style={{ left: `${Math.min(99, Math.max(1, midPct))}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Crisp Directional Monospace Feedback */}
+            <div className="border-t border-white/[0.1] pt-3.5 text-center">
+              <p className="font-mono-tech text-xs tracking-[0.26em] uppercase text-[#F4F2ED]">
+                {feedback}
+              </p>
+            </div>
           </div>
-          {hint && <p className="text-center text-lg font-semibold text-amber-300">{hint}</p>}
-        </div>
 
-        <div className="flex gap-2">
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleGuess()}
-            placeholder="Enter number..."
-            className="flex-1 bg-zinc-900 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white"
-          />
-          <button
-            onClick={handleGuess}
-            disabled={!input || isNaN(input) || guesses.length >= MAX_ATTEMPTS}
-            className="bg-white hover:bg-gray-200 text-black font-semibold px-6 py-3 rounded-lg transition-all duration-300 disabled:opacity-50"
-          >
-            Guess
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+          {/* 7 Monochrome Attempt Chips */}
+          <div className="grid grid-cols-7 gap-2">
+            {Array.from({ length: MAX_ATTEMPTS }).map((_, idx) => {
+              const entry = guesses[idx];
+              return (
+                <div
+                  key={idx}
+                  className={`h-12 border flex flex-col items-center justify-center font-mono-tech transition-colors ${
+                    entry
+                      ? "bg-[#1A1A1A] border-white/[0.28] text-[#F4F2ED]"
+                      : "bg-[#0A0A0A] border-white/[0.1] text-[#8E8B84]/40"
+                  }`}
+                >
+                  {entry ? (
+                    <>
+                      <span className="text-xs font-semibold leading-none">
+                        {formatTwoDigits(entry.value)}
+                      </span>
+                      <span className="text-[9px] text-[#8E8B84] mt-1 leading-none">
+                        {entry.direction === "UP"
+                          ? "↑"
+                          : entry.direction === "DOWN"
+                            ? "↓"
+                            : "="}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-[9px] tracking-[0.15em]">
+                      0{idx + 1}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-export default NumberGuessGame
+          {/* Input + DECODE CTA */}
+          <form onSubmit={handleSubmit} className="flex gap-2.5">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={100}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={`${formatTwoDigits(minBound)} – ${formatTwoDigits(maxBound)}`}
+              disabled={isSubmitting || guesses.length >= MAX_ATTEMPTS}
+              className="input-noir flex-1 px-4 py-3.5 rounded-none font-mono-tech text-base tracking-[0.22em] text-center"
+              aria-label="Enter vault combination between 1 and 100"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || isSubmitting || guesses.length >= MAX_ATTEMPTS}
+              className="px-6 sm:px-8 py-3.5 bg-[#F4F2ED] text-[#0A0A0A] hover:bg-white disabled:bg-[#1A1A1A] disabled:text-[#8E8B84] disabled:border disabled:border-white/[0.14] disabled:cursor-not-allowed font-mono-tech text-[11px] font-semibold tracking-[0.26em] uppercase transition-colors rounded-none"
+            >
+              {isSubmitting ? "..." : "DECODE"}
+            </button>
+          </form>
+        </div>
+      )}
+    </AtelierGameShell>
+  );
+};
+
+export default NumberGuessGame;

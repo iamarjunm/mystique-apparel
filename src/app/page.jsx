@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { client } from "@/sanity";
+import { getUnlockedReward } from "@/lib/promoVaultStorage";
 import HeroNew from "@/components/HeroNew";
 import MarqueeBanner from "@/components/MarqueeBanner";
 import TrendingProducts from "@/components/TrendingProducts";
 import Categories from "@/components/Categories";
 import AtelierCraft from "@/components/AtelierCraft";
 import LookbookShowcase from "@/components/LookbookShowcase";
+import AtelierVaultSection from "@/components/AtelierVaultSection";
 import PromoCountdown from "@/components/PromoCountdown";
 import EditorialSection from "@/components/EditorialSection";
 import Newsletter from "@/components/Newsletter";
@@ -16,6 +18,7 @@ import PromoGameSelector from "@/components/PromoGameSelector";
 export default function HomePage() {
   const [isGameOpen, setIsGameOpen] = useState(false);
   const [gameSettings, setGameSettings] = useState(null);
+  const [activeReward, setActiveReward] = useState(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -39,10 +42,27 @@ export default function HomePage() {
     fetchSettings();
   }, []);
 
+  useEffect(() => {
+    const syncReward = () => {
+      setActiveReward(getUnlockedReward());
+    };
+    syncReward();
+    window.addEventListener("mystique-reward-updated", syncReward);
+    window.addEventListener("storage", syncReward);
+    return () => {
+      window.removeEventListener("mystique-reward-updated", syncReward);
+      window.removeEventListener("storage", syncReward);
+    };
+  }, []);
+
+  const showFloatingVaultTab =
+    gameSettings?.promotionalGames?.showFloatingButton !== false &&
+    gameSettings?.promotionalGames?.enabled !== false;
+
   return (
     <>
       <div className="min-h-screen bg-[#F6F5F1] text-[#0D0D0D]">
-        {/* CHAPTER I — CINEMA NOIR: Monumental 3D Campaign Hero & Spec Ticker */}
+        {/* CHAPTER I — CINEMA NOIR: 3-Slide Luxury Campaign Hero & Spec Ticker */}
         <div className="bg-[#0A0A0A] text-[#F4F2ED]">
           <HeroNew />
           <MarqueeBanner />
@@ -63,10 +83,14 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* CHAPTER III — CINEMA NOIR: Material Architecture, Lookbook & Drop Event */}
+        {/* CHAPTER III — CINEMA NOIR: Material Architecture, Lookbook, Vault & Drop Event */}
         <div className="bg-[#0A0A0A] text-[#F4F2ED]">
           <AtelierCraft />
           <LookbookShowcase />
+          <AtelierVaultSection
+            onOpenVault={() => setIsGameOpen(true)}
+            gameSettings={gameSettings}
+          />
           <PromoCountdown />
         </div>
 
@@ -76,23 +100,35 @@ export default function HomePage() {
           <Newsletter />
         </div>
 
-        {/* Floating Monochrome Square Mystery Rewards Trigger (Sanity-controlled) */}
-        {gameSettings?.promotionalGames?.showFloatingButton && (
+        {/* Sleek Monochrome Architectural Floating Vault Trigger */}
+        {showFloatingVaultTab && (
           <button
             type="button"
             onClick={() => setIsGameOpen(true)}
-            className="fixed bottom-5 right-5 sm:bottom-7 sm:right-7 w-12 h-12 sm:w-14 sm:h-14 rounded-none flex items-center justify-center z-40 group bg-[#0D0D0D] text-[#F4F2ED] border border-white/25 hover:bg-[#F4F2ED] hover:text-[#0D0D0D] hover:border-[#0D0D0D] transition-colors duration-300 shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
-            title="Unlock Mystery Rewards"
-            aria-label="Unlock Mystery Rewards"
+            className="fixed bottom-5 right-5 sm:bottom-7 sm:right-7 z-40 group inline-flex items-center gap-2.5 bg-[#0A0A0A] text-[#F4F2ED] border border-white/[0.22] hover:bg-[#F4F2ED] hover:text-[#0A0A0A] hover:border-[#F4F2ED] px-4 py-3 rounded-none transition-colors duration-300 shadow-[0_14px_36px_rgba(0,0,0,0.42)] cursor-pointer"
+            title={
+              activeReward
+                ? `Active Privilege Code: ${activeReward.code}`
+                : "Enter The Atelier Vault"
+            }
+            aria-label={
+              activeReward ? "View Active Privilege Code" : "Enter The Atelier Vault"
+            }
           >
-            <span className="font-mono-tech text-base sm:text-lg transition-transform duration-300 group-hover:scale-110">
-              ⬢
+            <span className="font-mono-tech text-[11px] leading-none transition-transform duration-300 group-hover:rotate-45">
+              ◆
             </span>
+            <span className="font-mono-tech text-[10px] font-semibold tracking-[0.24em] uppercase">
+              {activeReward ? "Code Active" : "The Vault"}
+            </span>
+            {activeReward && (
+              <span className="w-1.5 h-1.5 bg-[#F4F2ED] group-hover:bg-[#0A0A0A]" />
+            )}
           </button>
         )}
       </div>
 
-      {/* Promo Game Selector */}
+      {/* Promo Game Selector & Non-Blocking Invitation */}
       <PromoGameSelector
         isOpen={isGameOpen}
         onClose={() => setIsGameOpen(false)}

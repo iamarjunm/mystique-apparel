@@ -13,6 +13,7 @@ import ShippingOptions from "@/components/checkout/ShippingOptions";
 import OrderSummary from "@/components/checkout/OrderSummary";
 import PaymentButton from "@/components/checkout/PaymentButton";
 import PaymentMethodSelector from "@/components/checkout/PaymentMethodSelector";
+import { getUnlockedReward } from "@/lib/promoVaultStorage";
 
 const CheckoutPage = () => {
   const { cart, clearCart } = useCart();
@@ -136,6 +137,13 @@ const CheckoutPage = () => {
   const [discountError, setDiscountError] = useState("");
   const [applyingDiscount, setApplyingDiscount] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("razorpay");
+
+  useEffect(() => {
+    const unlocked = getUnlockedReward();
+    if (unlocked?.code) {
+      setDiscountCode((prev) => (prev ? prev : unlocked.code));
+    }
+  }, []);
 
   useEffect(() => {
     if (!activeUser) return;
